@@ -510,7 +510,7 @@ VALUES (
     );
 --@block
 SELECT *
-FROM mtgmatches
+FROM MTGMatches
 WHERE Decklist LIKE '%Eluge%'
 ORDER BY date ASC;
 --@block 
@@ -520,7 +520,7 @@ CREATE TABLE Users(
     lastname VARCHAR(32)
 );
 --@block 
-INSERT INTO users(userid, firstname, lastname)
+INSERT INTO Users(userid, firstname, lastname)
 VALUES(0, 'Thomas', 'Dinh'),
     (1, 'Peter', 'Geheim'),
     (2, 'Kristian', 'Privat'),

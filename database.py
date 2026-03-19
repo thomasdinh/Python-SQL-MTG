@@ -200,11 +200,21 @@ class MtgMatch(Base):
     def __repr__(self):
         return f"<MtgMatch(match_id={self.match_id}, Decklist='{self.Decklist}', match_result='{self.match_result}', date={self.date}, group_id={self.group_id}, comment='{self.comment}')>"
 
+class User(Base):
+    """Example model for users."""
+    __tablename__ = 'Users'
+
+    userid        = Column(Integer, primary_key=True, autoincrement=True)
+    firstname     = Column(String(32), nullable=False)
+    lastname         = Column(String(32), nullable=False)
+
+    def __repr__(self):
+        return f"<User(userid={self.userid}, firstname='{self.firstname}', lastname='{self.lastname}')>"
 # ── Quick smoke-test ──────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     db = DatabaseManager()
-    decks = db.select(MtgMatch)
+    decks = db.select(User)
 
     print(decks)
 

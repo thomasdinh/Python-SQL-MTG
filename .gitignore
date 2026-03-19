@@ -1017,3 +1017,4 @@ py-venv/lib/python3.12/site-packages/pip-24.0.dist-info/WHEEL
 __pycache__/database.cpython-312.pyc
 __pycache__/FastApi.cpython-312.pyc
 login.env
+login.env
