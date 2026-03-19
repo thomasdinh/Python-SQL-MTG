@@ -100,7 +100,13 @@ class DatabaseManager:
             if filters:
                 for column, value in filters.items():
                     query = query.filter(getattr(model, column) == value)
-            return query.all()
+            results = query.all()
+            """session.expunge_all()
+            return results """
+            return [ {col.name: getattr(row, col.name) for col in model.__table__.columns}
+                for row in results
+            ]
+
 
     @staticmethod
     def insert(record) -> None:
@@ -165,11 +171,29 @@ class Card(Base):
     def __repr__(self):
         return f"<Card(id={self.id}, name='{self.name}', set='{self.set_code}')>"
 
+class Deck(Base):
+    """Example model for decks."""
+    __tablename__ = 'Decks'
+
+    deckid        = Column(Integer, primary_key=True, autoincrement=True)
+    deckname      = Column(String(32), nullable=False)
+    partnername    = Column(String(32))
+    color   = Column(String(16))
+    manavalue = Column(Integer)
+    deckownerid = Column(Integer)
+    image_url = Column(String(255))
+
+    def __repr__(self):
+        return f"<Deck(deckid={self.deckid}, deckname='{self.deckname}', partnername='{self.partnername}', color='{self.color}', manavalue={self.manavalue}, deckownerid={self.deckownerid}, image_url='{self.image_url}')>"
+
 
 # ── Quick smoke-test ──────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     db = DatabaseManager()
+    decks = db.select(Deck)
+
+    print(decks)
 
     # --- Raw SELECT ---
     """ print("\n── Raw SELECT ──────────────────────────────────")
