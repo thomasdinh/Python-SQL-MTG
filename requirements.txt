@@ -4,3 +4,4 @@ sqlalchemy
 alembic
 pydantic
 pymysql
+python-dotenv
