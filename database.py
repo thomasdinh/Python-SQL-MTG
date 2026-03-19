@@ -186,12 +186,25 @@ class Deck(Base):
     def __repr__(self):
         return f"<Deck(deckid={self.deckid}, deckname='{self.deckname}', partnername='{self.partnername}', color='{self.color}', manavalue={self.manavalue}, deckownerid={self.deckownerid}, image_url='{self.image_url}')>"
 
+class MtgMatch(Base):
+    """Example model for matches."""
+    __tablename__ = 'MTGMatches'
+
+    match_id        = Column(Integer, primary_key=True, autoincrement=True)
+    Decklist      = Column(String(256), nullable=False)
+    match_result    = Column(String(128))
+    date      = Column(String(10), nullable=False)
+    group_id       = Column(Integer)
+    comment           = Column(String(256))
+
+    def __repr__(self):
+        return f"<MtgMatch(match_id={self.match_id}, Decklist='{self.Decklist}', match_result='{self.match_result}', date={self.date}, group_id={self.group_id}, comment='{self.comment}')>"
 
 # ── Quick smoke-test ──────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     db = DatabaseManager()
-    decks = db.select(Deck)
+    decks = db.select(MtgMatch)
 
     print(decks)
 
