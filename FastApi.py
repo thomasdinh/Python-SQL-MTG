@@ -19,12 +19,12 @@ db = database.DatabaseManager()
 def root():
     return {"message": "Hello World"}
 
-@app.get("/users/{user_id}")
+@app.get("/users/{user_id}", response_model=schemas.UserResponse)
 def get_user(user_id: int):
     user = db.select(database.User, {"userid": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return dict(user[0])
 
 @app.post("/users/", response_model=schemas.UserResponse)
 def create_user(user: schemas.UserCreate):
@@ -46,8 +46,22 @@ def delete_user(user_id: int):
 
 @app.put("/users/{user_id}", response_model=schemas.UserResponse)
 def update_user(user_id: int, user: schemas.UserCreate):
-    existing = db.select(database.User, {"userid": user_id})
-    if not existing:
-        raise HTTPException(status_code=404, detail="User not found")
-    db.update(database.User, {"userid": user_id}, user)
-    return existing
+    try:
+        existing = db.select(database.User, {"userid": user_id})
+        if not existing:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        db.update(database.User, {"userid": user_id}, user.dict(exclude_unset=True))
+        
+        # use a different variable name to avoid overwriting user
+        updated_user = db.select(database.User, {"userid": user_id})
+        print(f"Updated user: {updated_user}")
+        
+        # select returns a list, take the first item
+        return updated_user[0]
+    except HTTPException as he:
+        raise  HTTPException(status_code=he.status_code, detail=he.detail)
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail="Error occurred while updating user")
+    

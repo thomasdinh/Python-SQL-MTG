@@ -141,6 +141,7 @@ class DatabaseManager:
                 query = query.filter(getattr(model, column) == value)
             count = query.update(updates, synchronize_session=False)
             print(f"Updated {count} row(s)")
+            
             return count
 
     @staticmethod
@@ -201,6 +202,12 @@ class User(Base):
     userid        = Column(Integer, primary_key=True, autoincrement=True)
     firstname     = Column(String(32), nullable=False)
     lastname         = Column(String(32), nullable=False)
+
+    def __iter__(self):
+        yield 'userid', self.userid
+        yield 'firstname', self.firstname
+        yield 'lastname', self.lastname
+    
 
     def __repr__(self):
         return f"<User(userid={self.userid}, firstname='{self.firstname}', lastname='{self.lastname}')>"

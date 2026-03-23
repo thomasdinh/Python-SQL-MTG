@@ -566,4 +566,5 @@ FROM users
 --@block
 ALTER TABLE decks
 ADD image_url VARCHAR(256);
---@block
+--@block delete auto incr counter
+ALTER TABLE Users AUTO_INCREMENT = 1;
