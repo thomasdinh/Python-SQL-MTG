@@ -1,6 +1,11 @@
 SHOW databases;
+--@block
+TRUNCATE TABLE MTGMatches;
+--@block
+DROP TABLE MTGMatches;
+--@block
 CREATE TABLE MTGMatches (
-    match_id INT PRIMARY KEY,
+    match_id INT PRIMARY KEY AUTO_INCREMENT,
     Decklist VARCHAR(255) NOT NULL,
     match_result VARCHAR(128),
     date VARCHAR(10),
@@ -8,9 +13,7 @@ CREATE TABLE MTGMatches (
     group_id INT,
     comment TEXT
 );
---@block
-ALTER TABLE mtgmatches
-MODIFY COLUMN date VARCHAR(10);
+
 --@block
 INSERT INTO MTGMatches (
         match_id,
@@ -513,19 +516,31 @@ SELECT *
 FROM MTGMatches
 WHERE Decklist LIKE '%Eluge%'
 ORDER BY date ASC;
+
+--@block
+DROP TABLE Users;
 --@block 
+
 CREATE TABLE Users(
     userid INT PRIMARY KEY,
     firstname VARCHAR(32),
     lastname VARCHAR(32)
 );
---@block 
+--@block
+SET FOREIGN_KEY_CHECKS = 0;
+ALTER TABLE Users MODIFY userid INT NOT NULL AUTO_INCREMENT;
+SET FOREIGN_KEY_CHECKS = 1;
+--@block
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE Users;
+SET FOREIGN_KEY_CHECKS = 1; 
+--@block
 INSERT INTO Users(userid, firstname, lastname)
-VALUES(0, 'Thomas', 'Dinh'),
-    (1, 'Peter', 'Geheim'),
-    (2, 'Kristian', 'Privat'),
-    (3, 'Steven', 'Secret'),
-    (4, 'Olli', 'Diskret');
+VALUES(NULL, 'Thomas', 'Dinh'),
+    (NULL, 'Peter', 'Geheim'),
+    (NULL, 'Kristian', 'Privat'),
+    (NULL, 'Steven', 'Secret'),
+    (NULL, 'Olli', 'Diskret');
 --@block    
 CREATE TABLE Decks(
     deckid INT,

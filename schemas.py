@@ -4,6 +4,7 @@ from typing import Optional
 
 # Used when CREATING a user (no userid yet, database generates it)
 class UserCreate(BaseModel):
+    userid: Optional[int] = None  # Optional because DB will auto-generate
     firstname: str
     lastname: str
 

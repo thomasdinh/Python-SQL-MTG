@@ -117,8 +117,14 @@ class DatabaseManager:
             db.insert(User(userid=5,firstname="Asura", lastname="Redacted"))
         """
         with get_session() as session:
+          
             session.add(record)
-            print(f"Inserted: {record}")
+            session.flush()
+            session.refresh(record)
+            data = {c.name: getattr(record, c.name) 
+                for c in record.__table__.columns}
+            print(f"Inserted: {data}")
+            return data
 
     @staticmethod
     def update(model, filters: dict, updates: dict) -> int:
