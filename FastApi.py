@@ -1,6 +1,8 @@
 # main.py
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+import database
+import schemas
 
 app = FastAPI()
 
@@ -9,11 +11,37 @@ app = FastAPI()
 from fastapi import FastAPI
 
 app = FastAPI()
+db = database.DatabaseManager()
 
 @app.get("/")
 def root():
     return {"message": "Hello World"}
 
-@app.get("/items/{item_id}")
-def get_item(item_id: int):
-    return {"item_id": item_id}
+@app.get("/users/{user_id}")
+def get_user(user_id: int):
+    user = db.select(database.User, {"userid": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@app.post("/users/", response_model=schemas.UserResponse)
+def create_user(user: schemas.UserCreate):  # accepts UserCreate, returns UserResponse
+    new_user = database.User(firstname=user.firstname, lastname=user.lastname)
+    db.insert(new_user)
+    return new_user
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int):
+    user = db.select(database.User, {"userid": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(database.User, {"userid": user_id})
+    return {"message": "User deleted successfully"}
+
+@app.put("/users/{user_id}", response_model=schemas.UserResponse)
+def update_user(user_id: int, user: schemas.UserCreate):
+    existing = db.select(database.User, {"userid": user_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.update(database.User, {"userid": user_id}, user)
+    return existing
