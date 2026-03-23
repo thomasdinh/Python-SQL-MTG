@@ -93,7 +93,7 @@ class DatabaseManager:
         SELECT rows from an ORM model, optionally filtered by column=value pairs.
 
         Usage:
-            cards = db.select(Card, {"set_code": "NEO"})
+            users = db.select(User, {"firstname": "Thomas"})
         """
         with get_session() as session:
             query = session.query(model)
@@ -114,7 +114,7 @@ class DatabaseManager:
         INSERT a single ORM record.
 
         Usage:
-            db.insert(Card(name="Lightning Bolt", set_code="LEA"))
+            db.insert(User(userid=5,firstname="Asura", lastname="Redacted"))
         """
         with get_session() as session:
             session.add(record)
@@ -127,7 +127,7 @@ class DatabaseManager:
         Returns the number of rows affected.
 
         Usage:
-            db.update(Card, {"id": 42}, {"price": 9.99})
+            db.update(User, {"firstname": "Thomas"},{"lastname": "Redacted"})
         """
         with get_session() as session:
             query = session.query(model)
@@ -144,7 +144,8 @@ class DatabaseManager:
         Returns the number of rows affected.
 
         Usage:
-            db.delete(Card, {"id": 42})
+            db.delete(User, "firstname": "Asura",)
+            db.delete(User, {"firstname": "Asura", "lastname": "Redacted"}) - 2 params
         """
         with get_session() as session:
             query = session.query(model)
@@ -157,19 +158,6 @@ class DatabaseManager:
 
 # ── Example ORM model ─────────────────────────────────────────────────────────
 
-class Card(Base):
-    """Example model — adjust columns to match your actual schema."""
-    __tablename__ = 'cards'
-
-    id        = Column(Integer, primary_key=True, autoincrement=True)
-    name      = Column(String(255), nullable=False)
-    set_code  = Column(String(10))
-    rarity    = Column(String(50))
-    price     = Column(Integer)
-    release   = Column(Date)
-
-    def __repr__(self):
-        return f"<Card(id={self.id}, name='{self.name}', set='{self.set_code}')>"
 
 class Deck(Base):
     """Example model for decks."""
@@ -214,9 +202,9 @@ class User(Base):
 
 if __name__ == '__main__':
     db = DatabaseManager()
-    decks = db.select(User)
-
-    print(decks)
+    matches = db.select(MtgMatch, {"match_id": 5})
+    print(matches)
+   
 
     # --- Raw SELECT ---
     """ print("\n── Raw SELECT ──────────────────────────────────")
