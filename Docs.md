@@ -27,6 +27,18 @@ user.firstname
 
 ### The Role of `from_attributes = True`
 
+Example use Case:
+```
+#https://docs.pydantic.dev/latest/concepts/models/#error-handling
+class UserResponse(BaseModel):
+    userid: int
+    firstname: str
+    lastname: str
+
+    class Config:
+        from_attributes = True  # tells Pydantic to read SQLAlchemy objects
+```
+
 By default, Pydantic expects plain dictionaries.
 Setting `from_attributes = True` in your Pydantic model’s `Config` tells Pydantic:
 
