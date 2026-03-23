@@ -1,9 +1,18 @@
-class Config in Pydantic
-It's a special inner class that controls how Pydantic behaves for that schema. Think of it as settings for the schema itself, not the data.
+# Pydantic and SQLAlchemy: Configuration and Session Management
 
-from_attributes = True in detail
-Without it, Pydantic only understands plain dictionaries:
-python{"userid": 1, "firstname": "John"}  # works by default
+---
+
+## 1. Pydantic’s `Config` Class
+
+The `Config` inner class in Pydantic allows you to customize how Pydantic models interact with your data.
+
+### Key Setting: `from_attributes = True`
+
+- **Default Behavior**:
+  Pydantic expects plain dictionaries:
+  ```python
+  {"userid": 1, "firstname": "John"}
+
 SQLAlchemy returns objects, not dicts:
 pythonuser.userid    # accessed as attribute, not dict key
 user.firstname
