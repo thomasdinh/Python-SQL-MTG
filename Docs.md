@@ -1,8 +1,19 @@
-#Lessons learned by programming this project
+# Lessons learned by programming this project
 
 ## Pydantic and SQLAlchemy: Configuration and Session Management
 
 ---
+
+
+## 1. How Pydantic Works with SQLAlchemy Objects
+
+SQLAlchemy returns **objects**, not dictionaries.
+For example, you access attributes like this:
+
+```python
+user.userid    # attribute access, not a dictionary key
+user.firstname
+```
 
 ## 1. Pydantic’s `Config` Class
 
@@ -15,17 +26,9 @@ The `Config` inner class in Pydantic allows you to customize how Pydantic models
   ```python
   {"userid": 1, "firstname": "John"}
 
-## How Pydantic Works with SQLAlchemy Objects
 
-SQLAlchemy returns **objects**, not dictionaries.
-For example, you access attributes like this:
 
-```python
-user.userid    # attribute access, not a dictionary key
-user.firstname
-```
-
-### The Role of `from_attributes = True`
+### 2. The Role of `from_attributes = True`
 
 Example use Case:
 ```
@@ -47,7 +50,7 @@ Setting `from_attributes = True` in your Pydantic model’s `Config` tells Pydan
 This allows Pydantic to **directly read your SQLAlchemy model** without requiring manual conversion to a dictionary.
 
 
-
+## 3. Fixes to session bound errors
 How to fix Error occurred: Instance <User at 0x7ffacf2e9fa0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3) - this needs `flush()`
 
 127.0.0.1:56328 - "POST /users/ HTTP/1.1" 500 Internal Server Error - this needs the dict
