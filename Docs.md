@@ -64,5 +64,7 @@ session.flush()         # write to MySQL, get userid ← key step 1
 session.refresh(record) # read userid back into object
 return dict(...)        # copy to plain dict before session closes ← key step 2
 ```
+## 4. Context Manager
+[Context Manager Video](https://www.youtube.com/watch?v=LBJlGwJ899Y)
 
 

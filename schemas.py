@@ -7,7 +7,7 @@ class UserCreate(BaseModel):
     userid: Optional[int] = None  # Optional because DB will auto-generate
     firstname: str
     lastname: str
-
+    
 # Used when READING a user (includes userid from database)
 #https://docs.pydantic.dev/latest/concepts/models/#error-handling
 class UserResponse(BaseModel):
@@ -17,3 +17,14 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True  # tells Pydantic to read SQLAlchemy objects
+
+class MtgMatchesResponse(BaseModel):
+    match_id: int
+    Decklist: str
+    match_result: str
+    date: str
+    group_id: int
+    comment: Optional[str] = None  # comment can be null
+
+    class Config:
+        from_attributes = True

@@ -561,8 +561,8 @@ VALUES(0, 'Pantlaza', 'RGW', 5, 0),
 SELECT deckname,
     firstname,
     lastname
-FROM users
-    INNER JOIN decks ON users.userid = decks.deckownerid;
+FROM Users
+    INNER JOIN Decks ON Users.userid = Decks.deckownerid;
 --@block
 ALTER TABLE decks
 ADD image_url VARCHAR(256);

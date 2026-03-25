@@ -1,4 +1,4 @@
-# main.py
+# FastApi.py
 
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -9,7 +9,6 @@ import schemas
 app = FastAPI()
 
 
-# main.py
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -52,8 +51,6 @@ def update_user(user_id: int, user: schemas.UserCreate):
             raise HTTPException(status_code=404, detail="User not found")
         
         db.update(database.User, {"userid": user_id}, user.dict(exclude_unset=True))
-        
-        # use a different variable name to avoid overwriting user
         updated_user = db.select(database.User, {"userid": user_id})
         print(f"Updated user: {updated_user}")
         
@@ -64,4 +61,11 @@ def update_user(user_id: int, user: schemas.UserCreate):
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Error occurred while updating user")
+    
+@app.get("/matches/{match_id}", response_model=schemas.MtgMatchesResponse)
+def get_match(match_id: int):
+    match = db.select(database.MtgMatch, {"match_id": match_id})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return dict(match[0])
     
