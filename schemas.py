@@ -18,6 +18,14 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True  # tells Pydantic to read SQLAlchemy objects
 
+class MtgMatchRequest(BaseModel):
+    match_id: Optional[int] = None  # Optional because DB will auto-generate
+    Decklist: str
+    match_result: str
+    date: str
+    group_id: int
+    comment: Optional[str] = None  # comment can be null
+
 class MtgMatchesResponse(BaseModel):
     match_id: int
     Decklist: str
