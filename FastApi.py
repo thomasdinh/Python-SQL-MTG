@@ -99,11 +99,7 @@ def create_match(match: schemas.MtgMatchRequest):
             comment=match.comment
         )
         result = db.insert(new_match)
-        result_entry = db.select(database.MtgMatch, {"match_result": match.match_result,
-            "date": match.date,
-            "group_id": match.group_id,
-            "comment": match.comment})
-        print(f"Inserted match: {result_entry[0]}")
+        
         return result
     except Exception as e:
         print(f"Error occurred: {e}")
