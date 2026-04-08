@@ -104,4 +104,63 @@ def create_match(match: schemas.MtgMatchRequest):
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Error occurred while creating match")
-    
+
+@app.delete("/matches/{match_id}")
+def delete_match(match_id: int):
+    match = db.select(database.MtgMatch, {"match_id": match_id})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    db.delete(database.MtgMatch, {"match_id": match_id})
+    return {"message": "Match deleted successfully"}
+
+@app.get("/decks/{deck_id}", response_model=schemas.DeckResponse)
+def get_deck(deck_id: int):
+    deck = db.select(database.Deck, {"deckid": deck_id})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    return dict(deck[0])
+
+@app.post("/decks/", response_model=schemas.DeckResponse)
+def create_deck(deck: schemas.DeckRequest):
+    try:
+        new_deck = database.Deck(
+            deckname=deck.deckname,
+            partnername=deck.partnername,
+            color=deck.color,
+            manavalue=deck.manavalue,
+            deckownerid=deck.deckownerid,
+            image_url=deck.image_url
+        )
+        result = db.insert(new_deck)
+        
+        return result
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail="Error occurred while creating deck")
+
+@app.put("/decks/{deck_id}", response_model=schemas.DeckResponse)
+def update_deck(deck_id: int, deck: schemas.DeckRequest):
+    try:
+        existing = db.select(database.Deck, {"deckid": deck_id})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Deck not found")
+        
+        db.update(database.Deck, {"deckid": deck_id}, deck.dict(exclude_unset=True))
+        updated_deck = db.select(database.Deck, {"deckid": deck_id})
+        print(f"Updated deck: {updated_deck}")
+        
+        # select returns a list, take the first item
+        return updated_deck[0]
+    except HTTPException as he:
+        raise  HTTPException(status_code=he.status_code, detail=he.detail)
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail="Error occurred while updating deck")
+
+@app.delete("/decks/{deck_id}")
+def delete_deck(deck_id: int):
+    deck = db.select(database.Deck, {"deckid": deck_id})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    db.delete(database.Deck, {"deckid": deck_id})
+    return {"message": "Deck deleted successfully"} 

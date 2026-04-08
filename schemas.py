@@ -36,3 +36,39 @@ class MtgMatchesResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class DeckRequest(BaseModel):
+    deckid: Optional[int] = None  # Optional because DB will auto-generate
+    deckname: str
+    partnername: Optional[str] = None
+    color: Optional[str] = None
+    manavalue: Optional[int] = None
+    ownerid: int
+    image_url: Optional[str] = None
+
+class DeckResponse(BaseModel):
+    deckid: int
+    deckname: str
+    partnername: Optional[str] = None
+    color: Optional[str] = None
+    manavalue: Optional[int] = None
+    ownerid: int
+    image_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class MatchPlayerRequest(BaseModel):
+    id: Optional[int] = None  # Optional because DB will auto-generate
+    match_id: int
+    deck_id: int
+    placement: int
+
+class MatchPlayerResponse(BaseModel):
+    id: int
+    match_id: int
+    deck_id: int
+    placement: int
+
+    class Config:
+        from_attributes = True

@@ -175,11 +175,11 @@ class Deck(Base):
     partnername    = Column(String(32))
     color   = Column(String(16))
     manavalue = Column(Integer)
-    deckownerid = Column(Integer)
+    ownerid = Column(Integer)
     image_url = Column(String(255))
 
     def __repr__(self):
-        return f"<Deck(deckid={self.deckid}, deckname='{self.deckname}', partnername='{self.partnername}', color='{self.color}', manavalue={self.manavalue}, deckownerid={self.deckownerid}, image_url='{self.image_url}')>"
+        return f"<Deck(deckid={self.deckid}, deckname='{self.deckname}', partnername='{self.partnername}', color='{self.color}', manavalue={self.manavalue}, ownerid={self.ownerid}, image_url='{self.image_url}')>"
 
 class MtgMatch(Base):
     """Example model for matches."""
@@ -211,6 +211,19 @@ class User(Base):
 
     def __repr__(self):
         return f"<User(userid={self.userid}, firstname='{self.firstname}', lastname='{self.lastname}')>"
+    
+class MatchPlayer(Base):
+    """Example model for match players."""
+    __tablename__ = 'MatchPlayers'
+
+    id        = Column(Integer, primary_key=True, autoincrement=True)
+    match_id  = Column(Integer, nullable=False)
+    deck_id = Column(Integer, nullable=False)
+    placement = Column(Integer, nullable=False)
+    won = Column(Integer, nullable=False)  # 1 for win, 0 for loss
+
+    def __repr__(self):
+        return f"<MatchPlayer(id={self.id}, match_id={self.match_id}, deck_id={self.deck_id}, placement={self.placement}, won={self.won})>"
 # ── Quick smoke-test ──────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
