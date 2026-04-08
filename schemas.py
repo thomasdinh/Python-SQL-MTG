@@ -72,3 +72,21 @@ class MatchPlayerResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class MatchPlayersResponse(BaseModel):
+    id: int
+    match_id: int
+    deck_id: int
+    placement: int
+    won: int
+
+
+class MatchPlayersRequest(BaseModel):
+    id: Optional[int] = None  # Optional because DB will auto-generate
+    match_id: int
+    deck_id: int
+    placement: int
+    won: int
+
+    class Config:
+        from_attributes = True
