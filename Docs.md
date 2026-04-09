@@ -203,3 +203,69 @@ SET @new_id = LAST_INSERT_ID();
 | Forgetting `SET @m = LAST_INSERT_ID()` between inserts | `@m` still holds the previous match ID | Always set it right after each `INSERT INTO Matches` |
 | Using `@variable` in stored procedures | Scope confusion with local variables | Use `DECLARE v INT;` for local proc variables instead |
 | Relying on `@m` across separate connections | Session variables don't persist between connections | Only use within one continuous session/script |
+
+# Python: Dictionary vs Object
+
+## 1. Dictionary (`dict`)
+A dictionary is a built-in Python data structure that stores **key-value pairs**.
+You access values using **square brackets** and the key.
+
+**Example:**
+```python
+# Define a dictionary
+person_dict = {
+    'name': 'Alice',
+    'age': 30,
+    'city': 'Berlin'
+}
+
+# Access values
+print(person_dict['name'])  # Output: Alice
+print(person_dict['age'])   # Output: 30
+```
+
+- **Pros:** Simple, flexible, no need for class definition.
+- **Cons:** No methods or behavior, just data.
+
+---
+
+## 2. Object (Class Instance)
+An object is an instance of a **class**.
+You define a class with attributes and methods, and access attributes using **dot notation**.
+
+**Example:**
+```python
+# Define a class
+class Person:
+    def __init__(self, name, age, city):
+        self.name = name
+        self.age = age
+        self.city = city
+
+# Create an object
+person_obj = Person('Alice', 30, 'Berlin')
+
+# Access attributes
+print(person_obj.name)  # Output: Alice
+print(person_obj.age)   # Output: 30
+```
+
+- **Pros:** Can have methods (functions), supports inheritance, more structured.
+- **Cons:** Requires class definition, more verbose.
+
+---
+
+## Key Differences
+   Feature         | Dictionary (`dict`)         | Object (Class Instance)      |
+ |-----------------|-----------------------------|------------------------------|
+ | **Syntax**      | `{'key': value}`            | `class MyClass: ...`         |
+ | **Access**      | `d['key']`                  | `obj.key`                    |
+ | **Methods**     | No (unless you add them)    | Yes (defined in class)       |
+ | **Flexibility** | Very flexible, dynamic      | Structured, type-safe        |
+ | **Use Case**    | Simple data storage         | Complex logic and behavior  |
+
+---
+
+## When to Use Which
+- Use a **dictionary** for simple, flexible data storage.
+- Use an **object** when you need behavior (methods) or structure.

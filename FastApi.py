@@ -1,18 +1,22 @@
 # FastApi.py
 
 
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import database
 import schemas
 
-app = FastAPI()
+app = FastAPI()  # ← only ONE of these
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-from fastapi import FastAPI
-
-app = FastAPI()
 db = database.DatabaseManager()
 
 @app.get("/")
@@ -129,8 +133,8 @@ def create_deck(deck: schemas.DeckRequest):
             partnername=deck.partnername,
             color=deck.color,
             manavalue=deck.manavalue,
-            deckownerid=deck.deckownerid,
-            image_url=deck.image_url
+            image_url=deck.image_url,
+            ownerid=deck.ownerid
         )
         result = db.insert(new_deck)
         
@@ -178,6 +182,27 @@ def get_match_player(deck_id: int):
     if not mp:
         raise HTTPException(status_code=404, detail="Match player not found")
     return mp
+
+@app.get("/matches_by_player/{ownerid}")
+def get_matches_by_player(ownerid: int):
+    ''' Return a list of matches for a given player id.'''
+    # First get all decks for the player
+    decks = db.select(database.Deck, {"ownerid": ownerid})
+    if not decks:
+        raise HTTPException(status_code=404, detail="No decks found for player")
+    
+    deck_ids = [deck['deckid'] for deck in decks]
+    
+    #print(f"Found decks for player {ownerid}: {deck_ids}")
+    # Now get all match players for those decks
+    match_players = []
+    for deck_id in deck_ids:
+        mps = db.select(database.MatchPlayer, {"deck_id": deck_id})
+        match_players.extend(mps)
+    
+    if not match_players:
+        raise HTTPException(status_code=404, detail="No matches found for player's decks")
+    return match_players
 
 @app.get("/matchplayers/{mp_id}", response_model=schemas.MatchPlayersResponse)
 def get_match_player(mp_id: int):
