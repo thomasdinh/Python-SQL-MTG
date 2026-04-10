@@ -269,3 +269,330 @@ print(person_obj.age)   # Output: 30
 ## When to Use Which
 - Use a **dictionary** for simple, flexible data storage.
 - Use an **object** when you need behavior (methods) or structure.
+
+# JS
+# `.map()` in JavaScript
+
+## What it is
+
+`.map()` is a method that lives on every array. It loops over every item, runs a function on it, and returns a **brand new array** of the results. The original array is never changed.
+
+The core idea in one line:
+
+```js
+const newArray = oldArray.map((item) => doSomethingWith(item))
+```
+
+---
+
+## The simplest possible example
+
+```js
+const numbers = [1, 2, 3, 4]
+
+const doubled = numbers.map((num) => num * 2)
+
+console.log(doubled) // [2, 4, 6, 8]
+console.log(numbers) // [1, 2, 3, 4]  ← unchanged
+```
+
+The function you pass to `.map()` receives one item at a time. Whatever you return from that function becomes the item in the new array.
+
+---
+
+## With objects — more like your real data
+
+```js
+const decks = [
+  { deckid: 1, deckname: 'Atraxa Superfriends', color: 'WUBG' },
+  { deckid: 2, deckname: 'Krenko Goblins',      color: 'R'    },
+  { deckid: 3, deckname: 'Muldrotha Graveyard', color: 'BUG'  },
+]
+
+const names = decks.map((deck) => deck.deckname)
+
+console.log(names) // ['Atraxa Superfriends', 'Krenko Goblins', 'Muldrotha Graveyard']
+```
+
+You give it an array of objects, you get back an array of just the field you wanted. `.map()` always returns an array of the same length — one output item per input item.
+
+---
+
+## The anatomy of a `.map()` call
+
+```js
+decks.map((deck) => deck.deckname)
+//    ↑           ↑
+//    |           the function runs once per item
+//    called on the array
+```
+
+The variable name in the parentheses (`deck`) is just a name you choose. It represents one item from the array on each loop. You could call it `x`, `item`, `d` — it doesn't matter, but naming it after what it contains makes the code readable.
+
+---
+
+## In React — rendering a list of components
+
+This is where you'll use `.map()` the most. Instead of returning a string or number, you return JSX:
+
+```jsx
+const decks = [
+  { deckid: 1, deckname: 'Atraxa Superfriends', color: 'WUBG' },
+  { deckid: 2, deckname: 'Krenko Goblins',      color: 'R'    },
+]
+
+function App() {
+  return (
+    <div>
+      {decks.map((deck) => (
+        <DeckCard key={deck.deckid} deck={deck} />
+      ))}
+    </div>
+  )
+}
+```
+
+React sees the array of JSX elements that `.map()` returns and renders all of them. This is the standard way to render any list in React — there is no `for` loop equivalent in JSX.
+
+The `key` prop is required when you do this. React uses it internally to track which component corresponds to which item, especially when the list changes. Always use a stable unique ID like `deck.deckid`, never the array index if you can avoid it.
+
+---
+
+## Comparison: `.map()` vs a `for` loop
+
+A regular `for` loop is a statement — it does something but doesn't produce a value you can use inline:
+
+```js
+// for loop — you have to build the array yourself
+const names = []
+for (let i = 0; i < decks.length; i++) {
+  names.push(decks[i].deckname)
+}
+```
+
+`.map()` is an expression — it produces a value directly, which is why you can drop it right inside JSX with `{}`:
+
+```js
+// map — one line, returns the array directly
+const names = decks.map((deck) => deck.deckname)
+```
+
+---
+
+## The two other array methods you'll use alongside it
+
+Once you have `.map()` down, these two follow naturally.
+
+`.filter()` — returns a new array containing only the items where the function returns `true`:
+
+```js
+const redDecks = decks.filter((deck) => deck.color === 'R')
+// only Krenko survives
+```
+
+`.find()` — returns the first single item where the function returns `true` (not an array):
+
+```js
+const atraxa = decks.find((deck) => deck.deckid === 1)
+// { deckid: 1, deckname: 'Atraxa Superfriends', color: 'WUBG' }
+```
+
+You'll commonly chain `.filter()` and `.map()` together — first narrow down the list, then transform it:
+
+```js
+// get names of all multi-color decks
+const multiColorNames = decks
+  .filter((deck) => deck.color.length > 1)
+  .map((deck) => deck.deckname)
+
+// ['Atraxa Superfriends', 'Muldrotha Graveyard']
+```
+
+---
+
+## Quick mental checklist
+
+When you see `.map()`, ask yourself:
+
+- What array am I starting with?
+- What do I want each item to become?
+- What array do I get back?
+
+That's all `.map()` ever does — transform every item in one array into a new array of the same length. 
+
+# Tailwind CSS basics
+
+## What Tailwind is
+
+Tailwind is a utility-first CSS framework. Instead of writing a separate `.css` file, you apply small single-purpose classes directly in your JSX. Each class does exactly one thing.
+
+```jsx
+<div className="bg-white border border-gray-200 rounded-xl p-4 flex gap-4 items-center">
+```
+
+---
+
+## Spacing
+
+| Class | What it does |
+|-------|-------------|
+| `p-4` | Padding on all sides. 4 = 1rem = 16px |
+| `p-8` | Padding on all sides. 8 = 2rem = 32px |
+| `px-4` | Padding left and right only |
+| `py-4` | Padding top and bottom only |
+| `mt-2` | Margin top |
+| `mb-6` | Margin bottom |
+| `gap-3` | Space between children in a flex or grid container |
+
+Tailwind uses a spacing scale where each step is 4px. So `p-1` = 4px, `p-2` = 8px, `p-4` = 16px, `p-8` = 32px.
+
+---
+
+## Layout — flexbox
+
+| Class | What it does |
+|-------|-------------|
+| `flex` | Makes a container use flexbox. Children line up in a row by default |
+| `flex-col` | Makes flex go vertically instead of horizontally |
+| `items-center` | Vertically centers children in a flex row |
+| `justify-between` | Pushes children to opposite ends of the container |
+| `flex-1` | Makes an element grow to fill all available space |
+| `flex-shrink-0` | Prevents an element from shrinking (use on icons to keep them square) |
+| `min-w-0` | Lets text truncate properly inside a flex child — a common flex quirk fix |
+| `gap-3` | Space between flex children |
+
+### Layout — grid
+
+| Class | What it does |
+|-------|-------------|
+| `grid` | Makes a container use CSS grid |
+| `grid-cols-2` | Two equal columns |
+| `grid-cols-3` | Three equal columns |
+
+Switching from a vertical list to a two-column grid is one class swap:
+
+```jsx
+<div className="flex flex-col gap-3">   {/* vertical list */}
+<div className="grid grid-cols-2 gap-3"> {/* two-column grid */}
+```
+
+---
+
+## Sizing
+
+| Class | What it does |
+|-------|-------------|
+| `w-14` | Width. 14 = 3.5rem = 56px |
+| `h-14` | Height. Same scale as width |
+| `w-full` | Width 100% of the parent |
+| `max-w-md` | Maximum width 448px |
+| `min-h-screen` | Minimum height fills the entire viewport |
+
+---
+
+## Appearance
+
+### Background colours
+```jsx
+bg-white         // white
+bg-gray-100      // very light gray (good for page backgrounds)
+bg-purple-100    // light purple (good for subtle highlights)
+```
+
+Tailwind colour scale: `100` is lightest, `900` is darkest. `50` is even lighter than `100`.
+
+### Borders
+```jsx
+border              // adds a 1px border
+border-gray-200     // sets the border colour to light gray
+rounded-lg          // border radius, moderately rounded
+rounded-xl          // border radius, more rounded
+rounded-full        // fully round (circle/pill)
+```
+
+### Text
+```jsx
+text-sm          // small font (14px)
+text-base        // default font (16px)
+text-lg          // large (18px)
+text-2xl         // 24px
+text-3xl         // 30px
+
+font-medium      // font weight 500
+font-bold        // font weight 700
+
+text-gray-900    // near black — use for headings
+text-gray-500    // medium gray — use for secondary text
+text-gray-400    // light gray — use for hints/placeholders
+
+truncate         // cuts text off with ... if it overflows (needs min-w-0 on parent in flex)
+```
+
+---
+
+## className vs class
+
+In React, you write `className` instead of `class`. This is because `class` is a reserved word in JavaScript.
+
+```jsx
+// ✅ correct in React
+<div className="bg-white p-4">
+
+// ❌ wrong in React (works in plain HTML but not JSX)
+<div class="bg-white p-4">
+```
+
+---
+
+## The `??` operator (not Tailwind, but used alongside it)
+
+The `??` (nullish coalescing) operator means "use this value, but if it is null or undefined, use the fallback instead". You will use it constantly when rendering optional fields from your API.
+
+```jsx
+{deck.color ?? 'Colorless'}
+// if deck.color is null or undefined → shows 'Colorless'
+// if deck.color is 'WUBG' → shows 'WUBG'
+
+{deck.manavalue ?? '—'}
+// if deck.manavalue is null → shows '—'
+// if deck.manavalue is 3 → shows 3
+```
+
+---
+
+## The DeckCard we built
+
+```jsx
+function DeckCard({ deck }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 flex gap-4 items-center">
+      <div className="bg-purple-100 rounded-lg w-14 h-14 flex items-center justify-center text-2xl flex-shrink-0">
+        🃏
+      </div>
+      <div className="flex-1 min-w-0">
+        <h2 className="text-base font-medium text-gray-900 truncate">
+          {deck.deckname}
+        </h2>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {deck.color ?? 'Colorless'} · MV {deck.manavalue ?? '—'}
+        </p>
+      </div>
+    </div>
+  )
+}
+```
+
+Reading it left to right: white card, light border, rounded corners, padding, flex row, gap between children. Icon box: light purple background, rounded, fixed 56×56px size, centered content, won't shrink. Text area: grows to fill space, allows truncation.
+
+---
+
+## Quick reference — classes used most often
+
+```
+Layout:     flex  flex-col  grid  grid-cols-2  items-center  justify-between  gap-4
+Spacing:    p-4  px-4  py-2  mt-2  mb-4
+Sizing:     w-full  h-14  max-w-md  min-h-screen
+Text:       text-sm  text-base  font-medium  text-gray-900  text-gray-500  truncate
+Background: bg-white  bg-gray-100  bg-purple-100
+Border:     border  border-gray-200  rounded-xl  rounded-lg
+```
