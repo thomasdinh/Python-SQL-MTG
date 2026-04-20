@@ -23,6 +23,11 @@ db = database.DatabaseManager()
 def root():
     return {"message": "Hello World"}
 
+@app.get("/users/", response_model=List[schemas.UserResponse])
+def get_all_users():
+    users = db.select(database.User, {})
+    return users
+
 @app.get("/users/{user_id}", response_model=schemas.UserResponse)
 def get_user(user_id: int):
     user = db.select(database.User, {"userid": user_id})

@@ -596,3 +596,334 @@ Text:       text-sm  text-base  font-medium  text-gray-900  text-gray-500  trunc
 Background: bg-white  bg-gray-100  bg-purple-100
 Border:     border  border-gray-200  rounded-xl  rounded-lg
 ```
+# React fundamentals — useState, useEffect, fetch, and state flow
+
+---
+
+## useState
+
+### What it is
+
+`useState` gives a component memory. A regular variable resets every time React re-renders the component. State persists across renders — when you update it, React re-renders the component with the new value.
+
+```jsx
+const [value, setValue] = useState(startingValue)
+```
+
+- `value` — the current value, use this to read
+- `setValue` — the function to update it, use this to write
+- `startingValue` — what it is before anything happens
+
+### Examples
+
+```jsx
+const [decks, setDecks] = useState([])          // starts as empty array
+const [loading, setLoading] = useState(true)     // starts as true
+const [error, setError] = useState(null)         // starts as null
+const [selectedId, setSelectedId] = useState(null)
+```
+
+### The golden rule
+
+**Never modify state directly.** Always go through the setter function.
+
+```jsx
+// ❌ wrong — React won't notice this change
+decks.push(newDeck)
+
+// ✅ correct — React sees the update and re-renders
+setDecks([...decks, newDeck])
+```
+
+### Re-rendering
+
+Every time you call a setter, React re-runs the component function with the new value. This is how your UI stays in sync with your data.
+
+```
+setDecks(data)
+    ↓
+React re-renders the component
+    ↓
+{decks.map(...)} now produces the new cards
+    ↓
+Browser updates
+```
+
+---
+
+## useEffect
+
+### What it is
+
+`useEffect` lets you run code in response to something happening — a component loading, or a piece of state changing. Without it there is no safe place to call `fetch` inside a React component.
+
+```jsx
+useEffect(() => {
+  // code to run
+}, [dependencies])
+```
+
+### The dependency array
+
+The second argument controls when the effect re-runs:
+
+```jsx
+useEffect(() => {
+  // runs once when the component first loads, never again
+}, [])
+
+useEffect(() => {
+  // runs when the component loads AND every time selectedPlayerId changes
+}, [selectedPlayerId])
+
+useEffect(() => {
+  // runs after every single render — almost never what you want
+})
+```
+
+### The most common pattern — fetch on load
+
+```jsx
+useEffect(() => {
+  fetch('http://localhost:8000/decks_by_player/1')
+    .then((res) => res.json())
+    .then((data) => setDecks(data))
+    .catch((err) => setError(err.message))
+}, [])
+```
+
+### Re-fetching when something changes
+
+```jsx
+useEffect(() => {
+  if (selectedPlayerId === null) return  // guard — don't fetch if nothing selected
+
+  setLoading(true)
+  setDecks([])
+
+  fetch(`http://localhost:8000/decks_by_player/${selectedPlayerId}`)
+    .then((res) => res.json())
+    .then((data) => {
+      setDecks(data)
+      setLoading(false)
+    })
+    .catch((err) => {
+      setError(err.message)
+      setLoading(false)
+    })
+}, [selectedPlayerId])  // re-runs every time selectedPlayerId changes
+```
+
+---
+
+## fetch and async data
+
+### What fetch returns
+
+`fetch` does not return data immediately — it returns a **Promise**. A Promise is a value that says "I don't have the result yet, but I will". You handle it with `.then()`.
+
+```jsx
+fetch(url)                        // returns a Promise
+  .then((response) => response.json())  // parse the raw response as JSON
+  .then((data) => {               // data is now your actual JavaScript object
+    setDecks(data)
+    setLoading(false)
+  })
+  .catch((err) => {               // anything going wrong lands here
+    setError(err.message)
+    setLoading(false)
+  })
+```
+
+### The three states of a fetch
+
+Every fetch in your app should handle all three outcomes:
+
+```jsx
+const [data, setData]       = useState([])
+const [loading, setLoading] = useState(true)
+const [error, setError]     = useState(null)
+
+// In JSX:
+if (loading) return <p>Loading...</p>
+if (error)   return <p>Error: {error}</p>
+return <div>{data.map(...)}</div>
+```
+
+### GET vs POST
+
+```jsx
+// GET — reading data (default, no options needed)
+fetch('http://localhost:8000/decks_by_player/1')
+
+// POST — sending data to create something
+fetch('http://localhost:8000/decks/', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    deckname: 'Atraxa Superfriends',
+    color: 'WUBG',
+    manavalue: 3,
+    ownerid: 1
+  })
+})
+
+// DELETE — removing something
+fetch('http://localhost:8000/decks/1', {
+  method: 'DELETE'
+})
+```
+
+---
+
+## State flow and lifting state up
+
+### The problem
+
+Two components that need to share data cannot talk directly to each other. In React, data only flows one way — downward from parent to child via props.
+
+```
+PlayerSelector wants to SET the selected player
+DeckList wants to READ the selected player
+
+They are siblings — neither is the parent of the other.
+They cannot communicate directly.
+```
+
+### The solution — lift state up to the shared parent
+
+Move the state into the closest parent that contains both components. Pass the value down to the reader, and the setter down to the writer.
+
+```
+App  ← owns selectedPlayerId state
+├── PlayerSelector  ← receives onSelect (the setter)
+└── DeckList        ← receives selectedPlayerId (the value)
+```
+
+```jsx
+// App.jsx — owns the state
+function App() {
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null)
+
+  return (
+    <div>
+      <PlayerSelector onSelect={setSelectedPlayerId} />
+      <DeckList playerId={selectedPlayerId} />
+    </div>
+  )
+}
+```
+
+```jsx
+// PlayerSelector.jsx — calls the setter when user clicks
+function PlayerSelector({ onSelect }) {
+  return (
+    <button onClick={() => onSelect(1)}>
+      Player One
+    </button>
+  )
+}
+```
+
+```jsx
+// DeckList.jsx — reads the value
+function DeckList({ playerId }) {
+  return <p>Showing decks for player {playerId}</p>
+}
+```
+
+### The full data flow diagram
+
+```
+User clicks a player button
+        ↓
+onClick={() => onSelect(player.userid)} fires in PlayerSelector
+        ↓
+onSelect is actually setSelectedPlayerId from App
+        ↓
+selectedPlayerId state in App updates
+        ↓
+App re-renders, passes new selectedPlayerId down to DeckList
+        ↓
+useEffect in DeckList sees selectedPlayerId changed
+        ↓
+New fetch fires to /decks_by_player/{selectedPlayerId}
+        ↓
+setDecks(data) called with new decks
+        ↓
+DeckList re-renders showing the new player's decks
+```
+
+### Passing functions as props
+
+You can pass any JavaScript value as a prop — including functions. This is how children communicate back up to parents.
+
+```jsx
+// passing the setter directly
+<PlayerSelector onSelect={setSelectedPlayerId} />
+
+// or wrapping it in a custom function if you need to do more
+<PlayerSelector onSelect={(id) => {
+  setSelectedPlayerId(id)
+  setDecks([])         // also reset decks when player changes
+}} />
+```
+
+---
+
+## The backend problem — fetching all users
+
+Your FastAPI backend only has `GET /users/{user_id}` — one user at a time. It has no `GET /users` endpoint that returns all users. This is why trying to fetch all players at once doesn't work.
+
+### Two ways to solve it
+
+**Option 1 — add the endpoint to FastAPI (recommended):**
+
+```python
+@app.get("/users/", response_model=List[schemas.UserResponse])
+def get_all_users():
+    users = db.select(database.User, {})
+    return users
+```
+
+Then in React:
+```jsx
+fetch(`${API_BASE}/users/`)
+  .then((res) => res.json())
+  .then((data) => setPlayers(data))
+```
+
+**Option 2 — fetch a range of IDs in parallel (workaround):**
+
+```jsx
+const ids = [1, 2, 3, 4, 5]
+
+Promise.all(
+  ids.map((id) =>
+    fetch(`${API_BASE}/users/${id}`)
+      .then((res) => res.ok ? res.json() : null)
+      .catch(() => null)
+  )
+).then((results) => {
+  const found = results.filter((user) => user !== null)
+  setPlayers(found)
+})
+```
+
+`Promise.all` fires all the fetches at the same time and waits for all of them to finish. The `.filter((user) => user !== null)` removes the ones that returned 404.
+
+Option 1 is cleaner — add the endpoint to your backend and you're done.
+
+---
+
+## Quick reference
+
+```
+useState(initial)        → [value, setValue]
+useEffect(fn, [])        → run once on load
+useEffect(fn, [x])       → run when x changes
+fetch(url)               → GET request
+fetch(url, {method, headers, body}) → POST/PUT/DELETE
+Promise.all([...])       → run multiple fetches in parallel
+lifting state up         → move state to shared parent, pass setter down
+```
