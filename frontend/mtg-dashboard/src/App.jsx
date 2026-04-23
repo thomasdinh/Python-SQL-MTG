@@ -26,19 +26,27 @@ function App() {
     setDecks([])
 
     fetch(`${API_BASE}/decks_by_player/${selectedPlayerId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setDecks(data)
-        setDecksLoading(false)
-      })
-      .catch((err) => {
-        setDecksError(err.message)
-        setDecksLoading(false)
-      })
+    .then((res) => {
+      if (res.status === 404) return []  // no decks found, return empty array
+      if (!res.ok) throw new Error('Failed to load decks')
+      return res.json()
+    })
+    .then((data) => {
+      setDecks(data)
+      setDecksLoading(false)
+    })
+    .catch((err) => {
+      setDecksError(err.message)
+      setDecksLoading(false)
+    })
   }, [selectedPlayerId])
 
   function handleDeckAdded(newDeck) {
     setDecks([...decks, newDeck])
+  }
+
+  function handleDeckDeleted(deletedId) {
+    setDecks(decks.filter((deck) => deck.deckid !== deletedId))
   }
 
   return (
@@ -65,6 +73,7 @@ function App() {
               decks={decks}
               loading={decksLoading}
               error={decksError}
+              onDeckDeleted={handleDeckDeleted}
             />
           </>
         )}

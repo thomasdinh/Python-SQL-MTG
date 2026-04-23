@@ -1338,3 +1338,251 @@ Append to list:       setItems([...items, newItem])
 Disable on submit:    disabled={submitting}
 Fragment:             <> ... </>
 ```
+
+# Dependent fetches and data patterns in React
+
+---
+
+## The problem — fetching data that depends on other data
+
+Sometimes you need two API calls in sequence. You cannot do the second one until the first one finishes, because you do not know what to ask for yet.
+
+```
+1. fetch /matches_by_deck/{deck_id}  → gives you match_player records (contains match_ids)
+2. fetch /matches/{match_id}         → gives you match details (date, comment)
+```
+
+You cannot do step 2 until step 1 finishes. This is called a **dependent fetch**.
+
+---
+
+## Dependent fetch pattern
+
+Put the second fetch inside the first `.then()`:
+
+```jsx
+fetch(`/matches_by_deck/${deckId}`)         // step 1
+  .then((res) => res.json())
+  .then((mpData) => {
+    // step 1 is done, mpData is available here
+
+    const matchIds = mpData.map((mp) => mp.match_id)
+
+    return Promise.all(                     // step 2 — only runs after step 1
+      matchIds.map((id) => fetch(`/matches/${id}`).then((r) => r.json()))
+    )
+  })
+  .then((matchData) => {
+    // step 2 is done, matchData is an array of match objects
+  })
+```
+
+The `return` before `Promise.all` is important — it passes the Promise from step 2 into the next `.then()`, chaining them together correctly.
+
+---
+
+## Promise.all — running multiple fetches in parallel
+
+`Promise.all` fires multiple fetches at the same time and waits for all of them to finish before continuing. Much faster than fetching one by one in a loop.
+
+```jsx
+Promise.all([
+  fetch('/matches/1').then((r) => r.json()),
+  fetch('/matches/2').then((r) => r.json()),
+  fetch('/matches/3').then((r) => r.json()),
+])
+.then((results) => {
+  // all three are done
+  // results is an array in the same order as the input
+  // results[0] = match 1, results[1] = match 2, results[2] = match 3
+})
+```
+
+### With a dynamic list of IDs
+
+```jsx
+const matchIds = [1, 2, 3, 4, 5]
+
+Promise.all(
+  matchIds.map((id) =>
+    fetch(`/matches/${id}`)
+      .then((res) => res.ok ? res.json() : null)
+      .catch(() => null)   // if one fails, return null instead of crashing everything
+  )
+).then((results) => {
+  const found = results.filter((match) => match !== null)
+})
+```
+
+### Promise.all vs fetching one by one
+
+```jsx
+// ❌ slow — each fetch waits for the previous one to finish
+for (const id of matchIds) {
+  const match = await fetch(`/matches/${id}`)
+  // total time = sum of all request times
+}
+
+// ✅ fast — all fetches fire at the same time
+await Promise.all(matchIds.map((id) => fetch(`/matches/${id}`)))
+// total time = slowest single request
+```
+
+---
+
+## Turning an array into an object for fast lookup
+
+When you need to look up items by ID repeatedly, convert the array into an object keyed by ID once. This is called a **map** or **lookup table**.
+
+### The problem with arrays
+
+```jsx
+// every lookup scans the whole array — slow with many items
+const match = matchData.find((m) => m.match_id === mp.match_id)
+```
+
+### The solution — build a lookup object
+
+```jsx
+const matchMap = {}
+matchData.forEach((match) => {
+  if (match) matchMap[match.match_id] = match
+})
+
+// now lookup is instant — direct key access
+const match = matchMap[mp.match_id]
+```
+
+### What the object looks like
+
+```js
+matchMap = {
+  1: { match_id: 1, date: '2024-01-15', comment: 'Won via combo' },
+  2: { match_id: 2, date: '2024-01-22', comment: null },
+  3: { match_id: 3, date: '2024-02-01', comment: 'Close game' },
+}
+```
+
+---
+
+## new Set() — removing duplicates from an array
+
+`Set` is a built-in JavaScript object that only holds unique values. Spreading it back into an array with `[...]` gives you a deduplicated array.
+
+```jsx
+const ids = [1, 2, 2, 3, 3, 3]
+
+const uniqueIds = [...new Set(ids)]
+// [1, 2, 3]
+```
+
+### Real use case — unique match IDs
+
+A player could theoretically appear in a match more than once (edge case). This ensures you only fetch each match once:
+
+```jsx
+const uniqueMatchIds = [...new Set(mpData.map((mp) => mp.match_id))]
+```
+
+---
+
+## Optional chaining ?.
+
+Safely access a property on something that might be `undefined` or `null`. Returns `undefined` instead of crashing.
+
+```jsx
+// ❌ crashes if match is undefined
+match.date
+
+// ✅ returns undefined if match is undefined, no crash
+match?.date
+
+// chaining — safe at every step
+match?.details?.date
+```
+
+### With a fallback using ??
+
+```jsx
+match?.date ?? '—'
+// if match is undefined → '—'
+// if match.date is null → '—'
+// if match.date is '2024-01-15' → '2024-01-15'
+```
+
+---
+
+## Conditional class names in Tailwind
+
+Apply different classes based on a value using a template literal and ternary:
+
+```jsx
+className={`text-sm font-medium ${winRate >= 50 ? 'text-green-600' : 'text-red-500'}`}
+```
+
+The backtick string lets you mix fixed classes with a dynamic `${}` block.
+
+### With multiple conditions
+
+```jsx
+className={`
+  w-1.5 h-1.5 rounded-full
+  ${won === 1 ? 'bg-green-500' : 'bg-red-400'}
+`}
+```
+
+---
+
+## Toggle pattern — show/hide content
+
+Use a boolean state to show or hide a section. Toggling it flips between true and false:
+
+```jsx
+const [showHistory, setShowHistory] = useState(false)
+
+// button that toggles it
+<button onClick={() => setShowHistory(!showHistory)}>
+  {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+</button>
+
+// content that shows conditionally
+{showHistory && <MatchHistory deckId={deck.deckid} />}
+```
+
+`!showHistory` flips the boolean — if it was `false` it becomes `true`, and vice versa.
+
+`{showHistory && <MatchHistory />}` — the `&&` operator means "if the left side is true, render the right side". If `showHistory` is false, nothing renders. This is the standard React pattern for conditionally showing a component.
+
+### Why this is better than display:none
+
+When `showHistory` is false, `MatchHistory` is not in the DOM at all — it does not exist, does not fetch data, does not use memory. When it becomes true, it mounts fresh and its `useEffect` fires, fetching the data for the first time. The fetch only happens when the user actually opens the history.
+
+---
+
+## Calculating stats from an array
+
+Using `.filter()` and `.length` to derive stats without storing them in state:
+
+```jsx
+const wins  = matchPlayers.filter((mp) => mp.won === 1).length
+const total = matchPlayers.length
+const winRate = Math.round((wins / total) * 100)
+```
+
+These are computed directly from the data on every render. No extra `useState` needed — if `matchPlayers` changes, the stats automatically update.
+
+---
+
+## Quick reference
+
+```
+Dependent fetch:     second fetch inside first .then()
+Promise.all:         fire multiple fetches in parallel, wait for all
+new Set():           [...new Set(array)] removes duplicates
+Lookup object:       forEach to build { id: item } for fast access
+Optional chaining:   match?.date — safe access, returns undefined not crash
+?? fallback:         match?.date ?? '—' — use fallback if undefined or null
+Conditional classes: `fixed-classes ${condition ? 'a' : 'b'}`
+Toggle pattern:      useState(false) + !prev + && render
+Derived stats:       compute from existing state, no extra useState needed
+```
