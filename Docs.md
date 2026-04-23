@@ -927,3 +927,414 @@ fetch(url, {method, headers, body}) → POST/PUT/DELETE
 Promise.all([...])       → run multiple fetches in parallel
 lifting state up         → move state to shared parent, pass setter down
 ```
+# Passing functions as props in React
+
+## The core idea
+
+In React you can pass any JavaScript value as a prop — including functions. This is how children communicate back up to their parent. The child doesn't own the state, but it can trigger a change in the parent by calling a function the parent gave it.
+
+---
+
+## Tracing it step by step
+
+### Step 1 — the parent owns the state and passes the setter down
+
+```jsx
+// App.jsx
+function App() {
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null)
+
+  return (
+    <PlayerSelector onSelect={setSelectedPlayerId} />
+  )
+}
+```
+
+`setSelectedPlayerId` is being passed as a prop named `onSelect`.
+Nothing has been called yet — you are just handing the function to the child, like giving someone a phone number to call later.
+
+### Step 2 — the child receives it and calls it when something happens
+
+```jsx
+// PlayerSelector.jsx
+function PlayerSelector({ onSelect }) {
+  return (
+    <button onClick={() => onSelect(player.userid)}>
+      {player.firstname}
+    </button>
+  )
+}
+```
+
+Inside `PlayerSelector`, `onSelect` is just a local name for whatever function was passed in. When the button is clicked, it calls `onSelect(player.userid)`.
+
+But `onSelect` IS `setSelectedPlayerId` — so this is identical to writing:
+
+```jsx
+onClick={() => setSelectedPlayerId(player.userid)}
+```
+
+The child does not know or care that the function is called `setSelectedPlayerId`. It just knows it received a function and that it should call it with the player's id when clicked.
+
+---
+
+## These two are exactly the same
+
+```jsx
+// shorthand — pass the setter directly
+<PlayerSelector onSelect={setSelectedPlayerId} />
+
+// longhand — wrap it in an anonymous function
+<PlayerSelector onSelect={(id) => setSelectedPlayerId(id)} />
+```
+
+The shorthand works because the function signatures match exactly — `onSelect` would receive one argument and pass it straight through anyway. The longhand makes the flow more obvious when you are learning.
+
+---
+
+## The full flow
+
+```
+User clicks the button in PlayerSelector
+        ↓
+onClick={() => onSelect(player.userid)} fires
+        ↓
+onSelect IS setSelectedPlayerId (passed down from App)
+        ↓
+setSelectedPlayerId(player.userid) runs in App
+        ↓
+selectedPlayerId state in App updates
+        ↓
+App re-renders with the new selectedPlayerId
+        ↓
+New selectedPlayerId is passed down to any component that needs it
+```
+
+---
+
+## The naming convention
+
+The prop name `onSelect` is just a label — you could call it anything:
+
+```jsx
+<PlayerSelector onSelect={setSelectedPlayerId} />
+<PlayerSelector onPlayerClick={setSelectedPlayerId} />
+<PlayerSelector handleSelect={setSelectedPlayerId} />
+<PlayerSelector updatePlayer={setSelectedPlayerId} />
+```
+
+All of these work identically. The `on` prefix is a convention that signals to other developers "this prop is a function meant to be called in response to an event". You will see it everywhere — `onClick`, `onChange`, `onSubmit`, `onSelect`, `onClose`.
+
+---
+
+## The bigger pattern
+
+```
+Parent owns the state
+    ↓
+Parent passes the setter down as a prop (named anything)
+    ↓
+Child calls that prop as a function when something happens
+    ↓
+The setter runs back in the parent, updating the state
+    ↓
+Parent re-renders and passes the new value back down
+```
+
+The child never touches the state directly. It only calls a function it was given. The parent stays in control of the data.
+
+---
+
+## A real example with two children
+
+This shows why this pattern is powerful. Both children share the same state, owned by the parent.
+
+```jsx
+function App() {
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null)
+
+  return (
+    <div>
+      {/* this child can SET the player */}
+      <PlayerSelector onSelect={setSelectedPlayerId} />
+
+      {/* this child can READ the player */}
+      <DeckList playerId={selectedPlayerId} />
+    </div>
+  )
+}
+```
+
+`PlayerSelector` and `DeckList` never talk to each other directly. They both talk to `App`. This is called **lifting state up** — moving state to the closest shared parent so multiple children can access it.
+
+---
+
+## Quick reference
+
+```
+Passing a function as a prop:
+  <Child onSomething={myFunction} />
+
+Receiving it in the child:
+  function Child({ onSomething }) { ... }
+
+Calling it in the child:
+  onClick={() => onSomething(someValue)}
+
+What this is equivalent to back in the parent:
+  onClick={() => myFunction(someValue)}
+```
+
+# Forms and POST requests in React
+
+## Controlled inputs
+
+In React, form inputs don't manage their own value — your state does. Every keystroke updates state, and the input always displays what's in state. This is called a **controlled input**.
+
+Every input follows the same two-part pattern:
+
+```jsx
+<input
+  value={deckname}                              // input displays what's in state
+  onChange={(e) => setDeckname(e.target.value)} // every keystroke updates state
+/>
+```
+
+`e` is the event object the browser sends on every keystroke.
+`e.target` is the input element itself.
+`e.target.value` is what is currently typed in it.
+
+### Uncontrolled vs controlled
+
+```jsx
+// ❌ uncontrolled — React doesn't know what's in it, can't reset it
+<input type="text" placeholder="Deck name" />
+
+// ✅ controlled — React owns the value, can read and reset it
+<input
+  type="text"
+  value={deckname}
+  onChange={(e) => setDeckname(e.target.value)}
+/>
+```
+
+### Resetting the form after submission
+
+Because inputs are controlled, setting state back to `''` immediately clears them:
+
+```jsx
+setDeckname('')
+setColor('')
+setManavalue('')
+```
+
+This only works because of controlled inputs. With uncontrolled inputs you would have to reach into the DOM manually, which React discourages.
+
+---
+
+## State for a form
+
+Each input field gets its own piece of state, plus state for the submission process:
+
+```jsx
+const [deckname, setDeckname]     = useState('')
+const [color, setColor]           = useState('')
+const [manavalue, setManavalue]   = useState('')
+const [submitting, setSubmitting] = useState(false)
+const [error, setError]           = useState(null)
+```
+
+---
+
+## Validation before fetching
+
+Always check the input before sending anything to the API. Use `return` to stop execution early if validation fails:
+
+```jsx
+function handleSubmit() {
+  if (!deckname.trim()) {
+    setError('Deck name is required')
+    return   // stops here — fetch never runs
+  }
+
+  // validation passed, proceed with fetch
+}
+```
+
+`.trim()` removes leading and trailing whitespace, so a field full of spaces does not pass validation.
+
+---
+
+## Making a POST request
+
+A POST request sends data to the API to create something new. It needs three extra options compared to a GET request:
+
+```jsx
+fetch('http://localhost:8000/decks/', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    deckname: deckname.trim(),
+    color: color.trim().toUpperCase() || null,
+    manavalue: manavalue ? parseInt(manavalue) : null,
+    ownerid: playerId,
+    image_url: null
+  })
+})
+```
+
+- `method: 'POST'` — tells the API this is a create request
+- `headers: { 'Content-Type': 'application/json' }` — tells the API the body is JSON
+- `body: JSON.stringify({...})` — converts your JavaScript object into a JSON string
+
+### The `|| null` pattern
+
+```jsx
+color: color.trim().toUpperCase() || null
+```
+
+If `color` is an empty string after trimming, `|| null` sends `null` to the API instead of `''`. This matches your Pydantic `Optional[str]` fields which expect null, not an empty string.
+
+### The `? :` pattern for numbers
+
+```jsx
+manavalue: manavalue ? parseInt(manavalue) : null
+```
+
+If `manavalue` is an empty string (falsy), send `null`. If it has a value, convert it from a string to an integer with `parseInt`. Form inputs always give you strings — even `type="number"` inputs return `"3"` not `3`.
+
+---
+
+## The full submit function pattern
+
+```jsx
+function handleSubmit() {
+  // 1. validate
+  if (!deckname.trim()) {
+    setError('Deck name is required')
+    return
+  }
+
+  // 2. set loading state
+  setSubmitting(true)
+  setError(null)
+
+  // 3. make the request
+  fetch(`${API_BASE}/decks/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deckname, ownerid: playerId })
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error('Failed to create deck')
+      return res.json()
+    })
+    .then((newDeck) => {
+      // 4. on success — reset form and update UI
+      setDeckname('')
+      setSubmitting(false)
+      onDeckAdded(newDeck)   // tell the parent
+    })
+    .catch((err) => {
+      // 5. on failure — show error
+      setError(err.message)
+      setSubmitting(false)
+    })
+}
+```
+
+Note the extra `.then()` at the start:
+```jsx
+.then((res) => {
+  if (!res.ok) throw new Error('Failed to create deck')
+  return res.json()
+})
+```
+`fetch` only goes to `.catch()` for network errors (server completely unreachable). A 400 or 500 response from the API is considered a "successful" fetch. You have to manually check `res.ok` and throw if it is false.
+
+---
+
+## Adding the new item to the list without re-fetching
+
+The API returns the newly created object as JSON. Instead of re-fetching the whole list, append the new item to the existing array:
+
+```jsx
+function handleDeckAdded(newDeck) {
+  setDecks([...decks, newDeck])
+}
+```
+
+`...decks` is the **spread operator** — it unpacks all existing items into the new array, then `newDeck` is added at the end. The result is a brand new array with all the old decks plus the new one.
+
+This is faster than re-fetching and avoids an extra network request.
+
+### Why not push?
+
+```jsx
+// ❌ wrong — mutates the existing array, React won't notice the change
+decks.push(newDeck)
+setDecks(decks)
+
+// ✅ correct — creates a brand new array, React sees the change and re-renders
+setDecks([...decks, newDeck])
+```
+
+---
+
+## Disabling the button during submission
+
+Prevent double submissions by disabling the button while the request is in flight:
+
+```jsx
+<button
+  onClick={handleSubmit}
+  disabled={submitting}
+  className="bg-purple-600 text-white rounded-lg px-4 py-2 text-sm
+             disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {submitting ? 'Adding...' : 'Add deck'}
+</button>
+```
+
+`disabled={submitting}` — button is disabled while `submitting` is true.
+`disabled:opacity-50` — Tailwind prefix that applies styles only when the element is disabled.
+`{submitting ? 'Adding...' : 'Add deck'}` — ternary to change the button label while loading.
+
+---
+
+## The fragment shorthand
+
+React components can only return one root element. When you need to return multiple elements without adding an extra `<div>`, use a fragment:
+
+```jsx
+// ❌ adds an unnecessary div to the DOM
+return (
+  <div>
+    <AddDeckForm />
+    <DeckList />
+  </div>
+)
+
+// ✅ groups elements without adding anything to the DOM
+return (
+  <>
+    <AddDeckForm />
+    <DeckList />
+  </>
+)
+```
+
+---
+
+## Quick reference
+
+```
+Controlled input:     value={state}  onChange={(e) => setState(e.target.value)}
+Reset form:           setState('')  for each field after successful submission
+Validate first:       if (!field.trim()) { setError('...'); return }
+POST request:         fetch(url, { method, headers, body: JSON.stringify({...}) })
+Check response:       if (!res.ok) throw new Error(...)
+Append to list:       setItems([...items, newItem])
+Disable on submit:    disabled={submitting}
+Fragment:             <> ... </>
+```

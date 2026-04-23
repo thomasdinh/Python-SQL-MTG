@@ -130,6 +130,11 @@ def get_deck(deck_id: int):
         raise HTTPException(status_code=404, detail="Deck not found")
     return dict(deck[0])
 
+@app.get("/decks/", response_model=List[schemas.DeckResponse])
+def get_all_decks():
+    decks = db.select(database.Deck, {})
+    return decks
+
 @app.post("/decks/", response_model=schemas.DeckResponse)
 def create_deck(deck: schemas.DeckRequest):
     try:
