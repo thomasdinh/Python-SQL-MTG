@@ -1016,3 +1016,310 @@ Object.keys(obj)        get all keys of an object as a string array
 .map(Number)            convert an array of strings to numbers
 guard division by zero  totalMatches > 0 ? rate : '—'
 PLACEMENT_COLORS        named colour object for consistent placement colouring
+
+
+# React Router
+
+---
+
+## What React Router does
+
+React Router lets you have real URLs for each page in a React app. Without it, React renders everything in one page and the URL never changes. With it, the browser bar updates, the back button works, and pages can be bookmarked and shared.
+
+Install it:
+
+```bash
+npm install react-router-dom
+```
+
+---
+
+## Core concepts
+
+| Concept | What it does |
+|---------|-------------|
+| `BrowserRouter` | Wraps your whole app once. Enables routing everywhere inside it. |
+| `Routes` | A container that looks at the current URL and renders the matching `Route`. |
+| `Route` | Maps a URL path to a component. |
+| `Link` | React Router's version of `<a>`. Navigates without a full page reload. |
+| `useNavigate` | A hook that lets you navigate programmatically from inside a component. |
+| `useParams` | A hook that reads dynamic segments from the URL. |
+| `useLocation` | A hook that tells you the current URL path. |
+
+---
+
+## Setup
+
+### 1. Wrap your app in BrowserRouter — `main.jsx`
+
+Do this once, at the very top level:
+
+```jsx
+import { BrowserRouter } from 'react-router-dom'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
+)
+```
+
+Everything inside `BrowserRouter` can use routing hooks and components.
+
+### 2. Define your routes — `App.jsx`
+
+```jsx
+import { Routes, Route } from 'react-router-dom'
+import Navbar from './components/Navbar'
+import Home from './pages/Home'
+import Players from './pages/Players'
+import PlayerDetail from './pages/PlayerDetail'
+
+function App() {
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <Navbar />
+      <Routes>
+        <Route path="/"            element={<Home />} />
+        <Route path="/players"     element={<Players />} />
+        <Route path="/players/:id" element={<PlayerDetail />} />
+      </Routes>
+    </div>
+  )
+}
+```
+
+`Navbar` sits outside `Routes` so it always renders regardless of the current page.
+`Routes` renders only the first `Route` whose path matches the current URL.
+
+---
+
+## URL parameters — useParams
+
+A `:segment` in a path is a URL parameter — a dynamic value that changes per page:
+
+```jsx
+<Route path="/players/:id" element={<PlayerDetail />} />
+```
+
+`/players/1` → id is `"1"`
+`/players/42` → id is `"42"`
+
+Read it inside the component with `useParams`:
+
+```jsx
+import { useParams } from 'react-router-dom'
+
+function PlayerDetail() {
+  const { id } = useParams()
+  // id is always a string — convert it when needed
+  const numericId = parseInt(id)
+}
+```
+
+**Important:** URL parameters are always strings, even if the value looks like a number. Always use `parseInt(id)` when your API or function expects a number.
+
+---
+
+## Navigating between pages
+
+### Link — declarative navigation (use in JSX)
+
+```jsx
+import { Link } from 'react-router-dom'
+
+<Link to="/players">Players</Link>
+<Link to={`/players/${player.userid}`}>View player</Link>
+```
+
+`Link` renders as an `<a>` tag but intercepts the click and uses React Router instead of doing a full page reload. Always prefer `Link` over `<a href>` inside a React Router app.
+
+### useNavigate — programmatic navigation (use in functions)
+
+```jsx
+import { useNavigate } from 'react-router-dom'
+
+function Players() {
+  const navigate = useNavigate()
+
+  return (
+    <button onClick={() => navigate(`/players/${player.userid}`)}>
+      View player
+    </button>
+  )
+}
+```
+
+Use `navigate` when you need to redirect after an action — clicking a card, submitting a form, or redirecting when data is not found:
+
+```jsx
+// redirect if player not found
+fetch(`/users/${id}`)
+  .then((res) => {
+    if (!res.ok) throw new Error('Not found')
+    return res.json()
+  })
+  .catch(() => navigate('/players'))  // send user back to the list
+```
+
+### Going back
+
+```jsx
+navigate(-1)        // go back one step in browser history
+navigate('/players') // go to a specific page
+```
+
+---
+
+## useLocation — reading the current URL
+
+`useLocation` gives you the current location object. The most useful property is `pathname`:
+
+```jsx
+import { useLocation } from 'react-router-dom'
+
+function Navbar() {
+  const location = useLocation()
+
+  return (
+    <nav>
+      <Link
+        to="/players"
+        className={location.pathname === '/players' ? 'font-medium' : 'text-gray-400'}
+      >
+        Players
+      </Link>
+    </nav>
+  )
+}
+```
+
+Use it to highlight the active nav link by comparing `location.pathname` to each link's path.
+
+---
+
+## Page structure with a shared Navbar
+
+The Navbar sits outside `Routes` in `App.jsx` so it renders on every page:
+
+```jsx
+function App() {
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <Navbar />        {/* always visible */}
+      <Routes>          {/* only the matching page renders */}
+        <Route path="/"        element={<Home />} />
+        <Route path="/players" element={<Players />} />
+      </Routes>
+    </div>
+  )
+}
+```
+
+---
+
+## How useEffect reacts to URL changes
+
+When a user navigates to `/players/2` from `/players/1`, the `PlayerDetail` component stays mounted — only the URL changes. `useParams` gives you the new `id`, and `useEffect` with `[id]` in the dependency array re-fetches automatically:
+
+```jsx
+const { id } = useParams()
+
+useEffect(() => {
+  // re-runs every time id changes
+  fetch(`/users/${id}`)
+    .then((res) => res.json())
+    .then((data) => setPlayer(data))
+}, [id])
+```
+
+Without `id` in the dependency array, navigating from one player to another would show stale data.
+
+---
+
+## Recommended folder structure
+
+```
+src/
+├── pages/
+│   ├── Home.jsx          → route "/"
+│   ├── Players.jsx       → route "/players"
+│   └── PlayerDetail.jsx  → route "/players/:id"
+├── components/
+│   ├── Navbar.jsx        → shared across all pages
+│   └── ...
+└── App.jsx               → defines all routes
+```
+
+Pages are components that represent a full screen. Components are reusable pieces used inside pages. This separation keeps your code organised as the app grows.
+
+---
+
+## Link vs useNavigate — when to use which
+
+| Situation | Use |
+|-----------|-----|
+| Navigation triggered by clicking text or a styled element | `Link` |
+| Navigation triggered by clicking a button or card | `useNavigate` |
+| Redirecting after a form submission | `useNavigate` |
+| Redirecting when data is not found | `useNavigate` |
+| Highlighting the active page in a navbar | `useLocation` |
+
+---
+
+## Common mistakes
+
+### Using `<a href>` instead of `<Link>`
+
+```jsx
+// ❌ causes a full page reload, loses all React state
+<a href="/players">Players</a>
+
+// ✅ stays within React, no reload
+<Link to="/players">Players</Link>
+```
+
+### Forgetting parseInt on URL params
+
+```jsx
+// ❌ passes a string "3" when the API expects a number
+<AddDeckForm playerId={id} />
+
+// ✅ converts to number first
+<AddDeckForm playerId={parseInt(id)} />
+```
+
+### Missing id in useEffect dependency array
+
+```jsx
+// ❌ only fetches on first load — navigating to a different player shows stale data
+useEffect(() => {
+  fetch(`/users/${id}`)
+}, [])
+
+// ✅ re-fetches whenever the id in the URL changes
+useEffect(() => {
+  fetch(`/users/${id}`)
+}, [id])
+```
+
+---
+
+## Quick reference
+
+```
+BrowserRouter         wrap app once in main.jsx
+Routes + Route        define URL → component mappings
+<Route path="/x/:id"> :id is a dynamic URL parameter
+useParams()           read URL parameters → always strings
+useNavigate()         navigate programmatically from a function
+navigate('/path')     go to a page
+navigate(-1)          go back
+<Link to="/path">     navigate from JSX without page reload
+useLocation()         read current URL path
+location.pathname     the current path e.g. "/players"
+parseInt(id)          always convert URL params to numbers when needed
+```

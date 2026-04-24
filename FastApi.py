@@ -71,7 +71,12 @@ def update_user(user_id: int, user: schemas.UserCreate):
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Error occurred while updating user")
-    
+
+@app.get("/matches/", response_model=List[schemas.MtgMatchesResponse])
+def get_all_matches():
+    matches = db.select(database.MtgMatch, {})
+    return matches  
+   
 @app.get("/matches/{match_id}", response_model=schemas.MtgMatchesResponse)
 def get_match(match_id: int):
     match = db.select(database.MtgMatch, {"match_id": match_id})

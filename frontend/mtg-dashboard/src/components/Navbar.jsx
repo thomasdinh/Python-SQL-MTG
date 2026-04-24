@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 const links = [
   { to: '/', label: 'Home' },
   { to: '/players', label: 'Players' },
+  { to: '/matches', label: 'Matches' },
 ]
 
 function Navbar() {
