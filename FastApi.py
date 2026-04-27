@@ -84,6 +84,40 @@ def get_match(match_id: int):
         raise HTTPException(status_code=404, detail="Match not found")
     return dict(match[0])
 
+@app.get("/matches/{match_id}/detail")
+def get_match_detail(match_id: int):
+    # get the match itself
+    match = db.select(database.MtgMatch, {"match_id": match_id})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # get all match players for this match
+    match_players = db.select(database.MatchPlayer, {"match_id": match_id})
+    
+    # for each match player, get their deck name
+    players_with_decks = []
+    for mp in match_players:
+        deck = db.select(database.Deck, {"deckid": mp["deck_id"]})
+        deck_name = deck[0]["deckname"] if deck else "Unknown"
+        players_with_decks.append({
+            "id": mp["id"],
+            "deck_id": mp["deck_id"],
+            "deck_name": deck_name,
+            "placement": mp["placement"],
+            "won": mp["won"]
+        })
+    
+    # sort by placement so winner is always first
+    players_with_decks.sort(key=lambda x: x["placement"])
+    
+    return {
+        "match_id": match[0]["match_id"],
+        "date": match[0]["date"],
+        "group_id": match[0]["group_id"],
+        "comment": match[0]["comment"],
+        "players": players_with_decks
+    }
+
 @app.put("/matches/{match_id}", response_model=schemas.MtgMatchesResponse)
 def update_match(match_id: int, match: schemas.MtgMatchesResponse):
     try:
@@ -135,6 +169,14 @@ def get_deck(deck_id: int):
         raise HTTPException(status_code=404, detail="Deck not found")
     return dict(deck[0])
 
+@app.get("/decks/name/{deckname}", response_model=schemas.DeckResponse)
+def get_deck(deckname: str):
+    deck = db.select(database.Deck, {"deckname": deckname})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    return dict(deck[0])
+
+
 @app.get("/decks/", response_model=List[schemas.DeckResponse])
 def get_all_decks():
     decks = db.select(database.Deck, {})
@@ -183,6 +225,14 @@ def delete_deck(deck_id: int):
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
     db.delete(database.Deck, {"deckid": deck_id})
+    return {"message": "Deck deleted successfully"}
+
+@app.delete("/decks/name/{deckname}")
+def delete_deck(deckname: str):
+    deck = db.select(database.Deck, {"deckname": deckname})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    db.delete(database.Deck, {"deckname": deckname})
     return {"message": "Deck deleted successfully"}
 
 @app.get("/decks_by_player/{ownerid}", response_model=List[schemas.DeckResponse])

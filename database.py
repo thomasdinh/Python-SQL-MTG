@@ -228,7 +228,7 @@ class MatchPlayer(Base):
 
 if __name__ == '__main__':
     db = DatabaseManager()
-    matches = db.select(MtgMatch, {"match_id": 5})
+    matches = db.select(Deck, {"deckname":"Pantlaza"})
     print(matches)
    
 

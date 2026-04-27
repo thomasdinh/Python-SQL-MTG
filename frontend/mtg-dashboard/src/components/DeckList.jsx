@@ -6,7 +6,7 @@ function DeckList({ decks, loading, error, onDeckDeleted }) {
   if (decks.length === 0) return <p className="text-gray-400 text-sm">No decks found.</p>
 
   return (
-    <div className="flex flex-col gap-3">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem'}}>
       {decks.map((deck) => (
         <DeckCard
           key={deck.deckid}
