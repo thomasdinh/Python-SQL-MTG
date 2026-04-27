@@ -4,6 +4,7 @@ const links = [
   { to: '/', label: 'Home' },
   { to: '/players', label: 'Players' },
   { to: '/matches', label: 'Matches' },
+  { to: '/decks', label: 'Decks' },
 ]
 
 function Navbar() {

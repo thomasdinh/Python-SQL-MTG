@@ -1323,3 +1323,4 @@ useLocation()         read current URL path
 location.pathname     the current path e.g. "/players"
 parseInt(id)          always convert URL params to numbers when needed
 ```
+
