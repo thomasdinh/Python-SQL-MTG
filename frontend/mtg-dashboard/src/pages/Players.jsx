@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, User } from 'lucide-react'
 import AddButton from '../components/AddButton'
+import AddPlayerForm from '../components/AddPlayerForm'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -9,6 +10,7 @@ function Players () {
   const [players, setPlayers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showAddForm, setShowAddForm] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -30,6 +32,10 @@ function Players () {
   if (loading)
     return <p className='p-8 text-sm text-gray-400'>Loading players...</p>
   if (error) return <p className='p-8 text-sm text-red-400'>{error}</p>
+
+  function handleNewPlayerAdded (newPlayer) {
+    setPlayers([...players, newPlayer])
+  }
 
   return (
     <div className='p-8'>
@@ -56,9 +62,19 @@ function Players () {
             <ChevronRight size={16} className='text-gray-300' />
           </button>
         ))}
+        <div>
+        {!showAddForm && (
+        <AddButton
+          onClick={() => setShowAddForm(!showAddForm)}
+          className='mt-6 '
+          hoverText='Add Player'
+        />
+        
+      )}
       </div>
-      <AddButton onClick={null} hoverText='Add Player' />
-
+      </div>
+      
+      {showAddForm && <AddPlayerForm onAddPlayer={handleNewPlayerAdded} onClickClose={() => setShowAddForm(false)} />}
       {/* --- IGNORE --- */}
     </div>
   )
