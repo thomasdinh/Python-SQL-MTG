@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, User } from 'lucide-react'
+import AddButton from '../components/AddButton'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -40,24 +41,25 @@ function Players () {
           gap: '1rem'
         }}
       >
-        
-          {players.map(player => (
-            <button
-              key={player.userid}
-              onClick={() => navigate(`/players/${player.userid}`)}
-              className='bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 hover:border-purple-300 hover:shadow-sm transition-all text-left'
-            >
-              <div className='w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0'>
-                <User size={16} className='text-purple-600' />
-              </div>
-              <span className='flex-1 font-medium text-gray-900'>
-                {player.firstname} {player.lastname}
-              </span>
-              <ChevronRight size={16} className='text-gray-300' />
-            </button>
-          ))}
-        
+        {players.map(player => (
+          <button
+            key={player.userid}
+            onClick={() => navigate(`/players/${player.userid}`)}
+            className='bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-4 hover:border-purple-300 hover:shadow-sm transition-all text-left'
+          >
+            <div className='w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0'>
+              <User size={16} className='text-purple-600' />
+            </div>
+            <span className='flex-1 font-medium text-gray-900'>
+              {player.firstname} {player.lastname}
+            </span>
+            <ChevronRight size={16} className='text-gray-300' />
+          </button>
+        ))}
       </div>
+      <AddButton onClick={null} hoverText='Add Player' />
+
+      {/* --- IGNORE --- */}
     </div>
   )
 }

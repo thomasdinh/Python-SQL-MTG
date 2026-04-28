@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 const API_BASE = 'http://localhost:8000'
 
-function AddDeckForm({ playerId, onDeckAdded }) {
+function AddDeckForm ({ playerId, onDeckAdded }) {
   const [deckname, setDeckname] = useState('')
   const [color, setColor] = useState('')
   const [manavalue, setManavalue] = useState('')
@@ -11,7 +11,7 @@ function AddDeckForm({ playerId, onDeckAdded }) {
   const [image_url, setImageUrl] = useState('')
   const [error, setError] = useState(null)
 
-  function handleSubmit() {
+  function handleSubmit () {
     if (!deckname.trim()) {
       setError('Deck name is required')
       return
@@ -32,11 +32,11 @@ function AddDeckForm({ playerId, onDeckAdded }) {
         image_url: image_url || null
       })
     })
-      .then((res) => {
+      .then(res => {
         if (!res.ok) throw new Error('Failed to create deck')
         return res.json()
       })
-      .then((newDeck) => {
+      .then(newDeck => {
         setDeckname('')
         setColor('')
         setManavalue('')
@@ -45,86 +45,84 @@ function AddDeckForm({ playerId, onDeckAdded }) {
         setSubmitting(false)
         onDeckAdded(newDeck)
       })
-      .catch((err) => {
+      .catch(err => {
         setError(err.message)
         setSubmitting(false)
       })
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-      <h2 className="text-sm font-medium text-gray-900 mb-4">Add a deck</h2>
+    <div className='bg-white border border-gray-200 rounded-xl p-5 mb-6'>
+      <h2 className='text-sm font-medium text-gray-900 mb-4'>Add a deck</h2>
 
-      <div className="flex flex-col gap-3">
+      <div className='flex flex-col gap-3'>
+        <div className='flex flex-col-2 gap-3'>
+          <div className='flex flex-col gap-1 flex-1'>
+            <label className='text-xs text-gray-500'>Commander name</label>
+            <input
+              type='text'
+              value={deckname}
+              onChange={e => setDeckname(e.target.value)}
+              placeholder="e.g. Atraxa, Praetors' Voice"
+              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
+            />
+          </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Commander name</label>
-          <input
-            type="text"
-            value={deckname}
-            onChange={(e) => setDeckname(e.target.value)}
-            placeholder="e.g. Atraxa, Praetors' Voice"
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400"
-          />
+          <div className='flex flex-col gap-1 flex-1'>
+            <label className='text-xs text-gray-500'>Partner (optional)</label>
+            <input
+              type='text'
+              value={partnername}
+              onChange={e => setPartnername(e.target.value)}
+              placeholder='e.g. Thrasios'
+              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
+            />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Partner (optional)</label>
+        <div className='flex flex-col gap-1'>
+          <label className='text-xs text-gray-500'>Image URL (optional)</label>
           <input
-            type="text"
-            value={partnername}
-            onChange={(e) => setPartnername(e.target.value)}
-            placeholder="e.g. Thrasios"
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Image URL (optional)</label>
-          <input
-            type="text"
+            type='text'
             value={image_url}
-            onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="e.g. https://example.com/image.jpg"
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400"
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder='e.g. https://example.com/image.jpg'
+            className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
           />
         </div>
 
-        <div className="flex flex-col-2 gap-3">
-          <div className="flex flex-col gap-1 flex-1">
-            <label className="text-xs text-gray-500">Color identity</label>
+        <div className='flex flex-col-2 gap-3'>
+          <div className='flex flex-col gap-1 flex-1'>
+            <label className='text-xs text-gray-500'>Color identity</label>
             <input
-              type="text"
+              type='text'
               value={color}
-              onChange={(e) => setColor(e.target.value)}
-              placeholder="e.g. WUBG"
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400"
+              onChange={e => setColor(e.target.value)}
+              placeholder='e.g. WUBG'
+              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
             />
           </div>
-          <div className="flex flex-col gap-1 flex-1">
-            <label className="text-xs text-gray-500">Mana Value</label>
+          <div className='flex flex-col gap-1 flex-1'>
+            <label className='text-xs text-gray-500'>Mana Value</label>
             <input
-              type="text"
+              type='text'
               value={manavalue}
-              onChange={(e) => setManavalue(e.target.value)}
-              placeholder="e.g. WURBG"
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400"
+              onChange={e => setManavalue(e.target.value)}
+              placeholder='e.g. 1,2,3...'
+              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
             />
           </div>
         </div>
 
-        {error && (
-          <p className="text-xs text-red-500">{error}</p>
-        )}
+        {error && <p className='text-xs text-red-500'>{error}</p>}
 
         <button
           onClick={handleSubmit}
           disabled={submitting}
-          className="bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className='bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
         >
           {submitting ? 'Adding...' : 'Add deck'}
         </button>
-
       </div>
     </div>
   )
