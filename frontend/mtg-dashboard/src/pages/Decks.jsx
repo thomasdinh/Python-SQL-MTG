@@ -75,6 +75,12 @@ function Decks () {
     setAllMatchPlayers(allMatchPlayers.filter(mp => mp.deck_id !== deletedId))
   }
 
+  function handleDeckUpdated(updatedDeck) {
+  setDecks(decks.map((d) =>
+    d.deckid === updatedDeck.deckid ? updatedDeck : d
+  ))
+}
+
   const totalMatches = allMatchPlayers.length
   const totalWins = allMatchPlayers.filter(mp => mp.won === 1).length
   const overallWinRate =
@@ -102,6 +108,7 @@ function Decks () {
         loading={decksLoading}
         error={decksError}
         onDeckDeleted={handleDeckDeleted}
+        onDeckUpdated={handleDeckUpdated}
       />
       {!showAddDeckForm && (
         <AddButton onClick={() => setShowAddDeckForm(!showAddDeckForm)} />

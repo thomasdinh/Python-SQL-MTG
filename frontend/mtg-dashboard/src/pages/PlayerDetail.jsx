@@ -72,6 +72,12 @@ function PlayerDetail () {
     setAllMatchPlayers(allMatchPlayers.filter(mp => mp.deck_id !== deletedId))
   }
 
+  function handleDeckUpdated(updatedDeck) {
+  setDecks(decks.map((d) =>
+    d.deckid === updatedDeck.deckid ? updatedDeck : d
+  ))
+}
+
   const totalWins = allMatchPlayers.filter(mp => mp.won === 1).length
   const totalMatches = allMatchPlayers.length
   const overallWinRate =
@@ -123,6 +129,7 @@ function PlayerDetail () {
             decks={decks}
             loading={decksLoading}
             error={decksError}
+            onDeckUpdated={handleDeckUpdated}
             onDeckDeleted={handleDeckDeleted}
           />
           <div>

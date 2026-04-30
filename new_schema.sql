@@ -734,3 +734,8 @@ JOIN MatchPlayers mp ON mp.match_id = m.match_id
 JOIN Decks d         ON d.deckid    = mp.deck_id
 GROUP BY m.match_id, m.played_at
 ORDER BY m.played_at;
+
+-- reset index
+ALTER TABLE Users AUTO_INCREMENT = 1;
+--
+ALTER TABLE Decks AUTO_INCREMENT = 1;
