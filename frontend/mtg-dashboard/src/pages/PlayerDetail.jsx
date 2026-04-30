@@ -5,6 +5,7 @@ import DeckList from '../components/DeckList'
 import AddDeckForm from '../components/AddDeckForm'
 import WinRateChart from '../components/WinRateChart'
 import PlacementChart from '../components/PlacementChart'
+import AddButton from '../components/AddButton'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -17,6 +18,7 @@ function PlayerDetail () {
   const [decksLoading, setDecksLoading] = useState(true)
   const [decksError, setDecksError] = useState(null)
   const [allMatchPlayers, setAllMatchPlayers] = useState([])
+  const [showAddDeckForm, setShowAddDeckForm] = useState(false)
 
   useEffect(() => {
     fetch(`${API_BASE}/users/${id}`)
@@ -115,17 +117,30 @@ function PlayerDetail () {
       <div className='flex flex-col gap-6'>
         <WinRateChart decks={decks} matchPlayers={allMatchPlayers} />
         <PlacementChart matchPlayers={allMatchPlayers} />
-        <AddDeckForm playerId={parseInt(id)} onDeckAdded={handleDeckAdded} />
-        
+        </div>
+        <div className='mt-4 mb-4   gap-4 hover:border-purple-300 hover:shadow-sm transition-all text-left'>
           <DeckList
             decks={decks}
             loading={decksLoading}
             error={decksError}
             onDeckDeleted={handleDeckDeleted}
           />
+          <div>
+            {!showAddDeckForm && (
+              <AddButton onClick={() => setShowAddDeckForm(!showAddDeckForm)} />
+            )}
+          </div>
         </div>
-      </div>
-  
+
+      {showAddDeckForm && (
+        <AddDeckForm
+          playerId={parseInt(id)}
+          className='p-6'
+          onDeckAdded={handleDeckAdded}
+          onClickClose={() => setShowAddDeckForm(false)}
+        />
+      )}
+    </div>
   )
 }
 

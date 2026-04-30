@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -56,8 +57,8 @@ function AddPlayerForm({ onAddPlayer, onClickClose}) {
       <div className='bg-white border border-gray-200 rounded mt-4 p-5'>
         <div className='flex items-center justify-between mb-4 gap-4'>
         <h2 className='text-sm font-medium text-gray-900 mb-4'>Add a player</h2>
-        <button className=' text-gray-400 hover:text-gray-600' onClick={() => onClickClose()}>
-            x
+        <button className=' text-gray-400 hover:text-red-600 cursor-pointer' onClick={() => onClickClose()}>
+            <X />
         </button>
         </div>
         <div className='flex flex-col-2 gap-3'>

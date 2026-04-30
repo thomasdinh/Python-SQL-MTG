@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 
 const API_BASE = 'http://localhost:8000'
 
-function AddDeckForm ({ playerId, onDeckAdded }) {
+function AddDeckForm ({ playerId, onDeckAdded, onClickClose }) {
   const [deckname, setDeckname] = useState('')
   const [color, setColor] = useState('')
   const [manavalue, setManavalue] = useState('')
@@ -53,7 +54,12 @@ function AddDeckForm ({ playerId, onDeckAdded }) {
 
   return (
     <div className='bg-white border border-gray-200 rounded-xl p-5 mb-6'>
-      <h2 className='text-sm font-medium text-gray-900 mb-4'>Add a deck</h2>
+      <div className='flex items-center justify-between mb-4 gap-4'>
+        <h2 className='text-sm font-medium text-gray-900 mb-4'>Add a deck</h2>
+        <button className='text-gray-400 hover:text-red-600 cursor-pointer' onClick={() => onClickClose()}>
+          <X />
+        </button>
+      </div>
 
       <div className='flex flex-col gap-3'>
         <div className='flex flex-col-2 gap-3'>
