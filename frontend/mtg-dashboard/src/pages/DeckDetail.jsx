@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Layers } from 'lucide-react'
 import MatchHistory from '../components/MatchHistory'
-import PlacementChart from '../components/charts/PlacementChart'
+import PlacementChart from '../components/PlacementChart'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -69,7 +69,7 @@ function DeckDetail() {
 
       {/* deck header */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 flex gap-5 items-center mb-6">
-        <div className="w-20 h-20 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <div className="w-20 h-20 rounded-xl bg-purple-100 overflow-hidden">
           {showImage ? (
             <img
               src={deck.image_url}
