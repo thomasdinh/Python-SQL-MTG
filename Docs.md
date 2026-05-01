@@ -1324,3 +1324,324 @@ location.pathname     the current path e.g. "/players"
 parseInt(id)          always convert URL params to numbers when needed
 ```
 
+# Dynamic detail pages in React Router
+
+## What a dynamic detail page is
+
+A dynamic detail page is a page that renders differently based on a value in the URL. Instead of creating a separate page for every deck, player, or match, you create one component and let the URL tell it which item to show.
+
+```
+/decks/1    → shows Atraxa deck
+/decks/2    → shows Krenko deck
+/decks/42   → shows whatever deck has ID 42
+```
+
+One component. Infinite pages.
+
+---
+
+## The three building blocks
+
+| Building block | What it does |
+|---------------|-------------|
+| `:id` in the route path | Marks a dynamic segment in the URL |
+| `useParams()` | Reads the dynamic segment inside the component |
+| `useNavigate()` | Navigates programmatically — including going back |
+
+---
+
+## Step 1 — define the route with a dynamic segment
+
+In `App.jsx`, add `:id` to the path. The colon marks it as dynamic:
+
+```jsx
+import DeckDetail from './pages/DeckDetail'
+
+<Route path="/decks/:id" element={<DeckDetail />} />
+```
+
+You can name it anything — `:id`, `:deckId`, `:slug`. The name you choose here is what you read with `useParams()`.
+
+```jsx
+// named :deckId
+<Route path="/decks/:deckId" element={<DeckDetail />} />
+
+// read as deckId
+const { deckId } = useParams()
+```
+
+---
+
+## Step 2 — read the ID inside the component
+
+```jsx
+import { useParams } from 'react-router-dom'
+
+function DeckDetail() {
+  const { id } = useParams()
+  // id is "3" when the URL is /decks/3
+  // id is always a STRING — convert to number when needed
+}
+```
+
+---
+
+## Step 3 — fetch data using the ID
+
+Use the ID in a `useEffect` with `[id]` in the dependency array. This means the effect re-runs whenever the URL changes — so navigating from `/decks/1` to `/decks/2` automatically fetches new data:
+
+```jsx
+const [item, setItem] = useState(null)
+const [loading, setLoading] = useState(true)
+
+useEffect(() => {
+  fetch(`http://localhost:8000/your-endpoint/${id}`)
+    .then((res) => {
+      if (!res.ok) throw new Error('Not found')
+      return res.json()
+    })
+    .then((data) => {
+      setItem(data)
+      setLoading(false)
+    })
+    .catch(() => navigate('/your-list-page'))  // redirect if not found
+}, [id])   // ← re-runs when id changes
+```
+
+Always redirect on error — never leave the user on a broken page.
+
+---
+
+## Step 4 — navigate to the detail page
+
+### From a list component — using useNavigate
+
+```jsx
+import { useNavigate } from 'react-router-dom'
+
+function DeckCard({ deck }) {
+  const navigate = useNavigate()
+
+  return (
+    <div onClick={() => navigate(`/decks/${deck.deckid}`)}>
+      {deck.deckname}
+    </div>
+  )
+}
+```
+
+### From a nav link — using Link
+
+```jsx
+import { Link } from 'react-router-dom'
+
+<Link to={`/decks/${deck.deckid}`}>
+  {deck.deckname}
+</Link>
+```
+
+Use `navigate` when the click triggers something else too (a button, a card). Use `Link` for plain text or nav items.
+
+---
+
+## Step 5 — add a back button
+
+```jsx
+const navigate = useNavigate()
+
+<button onClick={() => navigate(-1)}>
+  ← Back
+</button>
+```
+
+`navigate(-1)` goes back one step in browser history — back to wherever the user came from. Better than hardcoding a path because it works regardless of how the user arrived.
+
+```js
+navigate('/decks')   // always goes to /decks — ignores where user came from
+navigate(-1)         // goes back to the previous page in history
+```
+
+---
+
+## The general template
+
+Every dynamic detail page follows this exact structure. Copy and adapt it for any entity:
+
+```jsx
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+
+const API_BASE = 'http://localhost:8000'
+
+function ThingDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+
+  // 1. state for the main item
+  const [item, setItem] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // 2. state for related data (optional)
+  const [relatedItems, setRelatedItems] = useState([])
+
+  // 3. fetch the main item
+  useEffect(() => {
+    fetch(`${API_BASE}/things/${id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Not found')
+        return res.json()
+      })
+      .then((data) => {
+        setItem(data)
+        setLoading(false)
+      })
+      .catch(() => navigate('/things'))  // redirect if not found
+  }, [id])
+
+  // 4. fetch related data (optional, separate useEffect)
+  useEffect(() => {
+    fetch(`${API_BASE}/related-things/${id}`)
+      .then((res) => res.status === 404 ? [] : res.json())
+      .then((data) => setRelatedItems(data))
+      .catch(() => setRelatedItems([]))
+  }, [id])
+
+  // 5. derive stats from related data
+  const total = relatedItems.length
+  const someCount = relatedItems.filter((r) => r.someField === true).length
+
+  // 6. handle loading and missing item
+  if (loading) return <p className="p-8 text-sm text-gray-400">Loading...</p>
+  if (!item) return null
+
+  // 7. render
+  return (
+    <div className="max-w-3xl mx-auto p-8">
+
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-700 mb-6"
+      >
+        <ArrowLeft size={14} />
+        Back
+      </button>
+
+      <h1 className="text-2xl font-medium text-gray-900 mb-6">
+        {item.name}
+      </h1>
+
+      {/* stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-400 mb-1">Total</p>
+          <p className="text-2xl font-medium text-gray-900">{total}</p>
+        </div>
+      </div>
+
+      {/* related items */}
+      <div className="flex flex-col gap-3">
+        {relatedItems.map((r) => (
+          <div key={r.id}>{r.name}</div>
+        ))}
+      </div>
+
+    </div>
+  )
+}
+
+export default ThingDetail
+```
+
+---
+
+## Derived stats — compute from state, not extra fetches
+
+Stats like win rate, average placement, and counts should be computed directly from existing state. No extra API calls needed:
+
+```jsx
+const totalMatches = matchPlayers.length
+const wins         = matchPlayers.filter((mp) => mp.won === 1).length
+const losses       = totalMatches - wins
+const winRate      = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0
+
+const avgPlacement = totalMatches > 0
+  ? (matchPlayers.reduce((sum, mp) => sum + mp.placement, 0) / totalMatches).toFixed(1)
+  : '—'
+```
+
+These recalculate automatically whenever `matchPlayers` changes. No `useState` needed for derived values.
+
+`.reduce()` is used here for the average — it accumulates a running total across the array:
+
+```js
+// sum all placements then divide by count
+matchPlayers.reduce((sum, mp) => sum + mp.placement, 0)
+//           ↑ accumulator  ↑ current item  ↑ starting value
+```
+
+---
+
+## Connecting the list page to the detail page
+
+The list page just navigates to the detail page — it does not need to pass any data. The detail page fetches its own data from the URL.
+
+```
+List page          Detail page
+/decks    →  click  →  /decks/3
+              id=3
+              fetches /decks/3 from API
+              renders DeckDetail with that data
+```
+
+This means:
+- The list page stays simple — it only needs to know IDs
+- The detail page is self-contained — it can be linked to directly
+- Refreshing the detail page works — the URL has everything needed to refetch
+
+---
+
+## The URL parameter gotcha
+
+URL parameters are always strings. Always convert to a number when your API or a function expects one:
+
+```jsx
+const { id } = useParams()
+
+// ❌ passes string "3" — may cause API issues
+fetch(`/decks/${id}`)              // fine for URLs
+someFunction(id)                   // wrong if function expects number
+
+// ✅ convert when needed
+someFunction(parseInt(id))
+<AddDeckForm playerId={parseInt(id)} />
+```
+
+---
+
+## Multiple dynamic segments
+
+You can have more than one dynamic segment in a path:
+
+```jsx
+<Route path="/players/:playerId/decks/:deckId" element={<PlayerDeckDetail />} />
+
+// inside the component
+const { playerId, deckId } = useParams()
+```
+
+---
+
+## Quick reference
+
+```
+Define route:        <Route path="/things/:id" element={<ThingDetail />} />
+Read URL param:      const { id } = useParams()
+Always a string:     parseInt(id) when number needed
+Fetch on load:       useEffect(() => { fetch(...id) }, [id])
+Redirect if 404:     .catch(() => navigate('/things'))
+Go back:             navigate(-1)
+Go to detail:        navigate(`/things/${item.id}`)
+Link to detail:      <Link to={`/things/${item.id}`}>text</Link>
+Derive stats:        compute from state — no extra useState or fetch needed
+```

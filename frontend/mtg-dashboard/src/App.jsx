@@ -5,6 +5,7 @@ import Players from './pages/Players'
 import PlayerDetail from './pages/PlayerDetail'
 import Matches from './pages/Matches'
 import Decks from './pages/Decks'
+import DeckDetail from './pages/DeckDetail'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/players/:id" element={<PlayerDetail />} />
         <Route path="/matches" element={<Matches />} />
         <Route path="/decks" element={<Decks />} />
+        <Route path="/decks/:id" element={<DeckDetail />} />
       </Routes>
     </div>
   )
