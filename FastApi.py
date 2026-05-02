@@ -1,9 +1,13 @@
 # FastApi.py
 
 
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
+
+import uvicorn
 import database
 import schemas
 
@@ -317,3 +321,6 @@ def update_match_player(mp_id: int, mp: schemas.MatchPlayerRequest):
     except Exception as e:
         print(f"Error occurred: {e}")
         raise HTTPException(status_code=500, detail="Error occurred while updating match player")
+    
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
