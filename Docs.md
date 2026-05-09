@@ -1645,3 +1645,331 @@ Go to detail:        navigate(`/things/${item.id}`)
 Link to detail:      <Link to={`/things/${item.id}`}>text</Link>
 Derive stats:        compute from state — no extra useState or fetch needed
 ```
+# Dynamic forms and sequential fetches
+
+---
+
+## What a dynamic form is
+
+A dynamic form has a variable number of rows — the user can add or remove entries before submitting. Instead of a fixed set of inputs, you store the rows as an array in state and render them with `.map()`.
+
+```
+Date:     [ 2024-01-15 ]
+Comment:  [ Won via combo ]
+
+Participants:
+  #1  [ Atraxa ▾ ]  [1]  [🗑]
+  #2  [ Krenko ▾ ]  [2]  [🗑]
+  #3  [ Muldrotha▾]  [3]  [🗑]
+  + Add participant
+
+[ Log match ]
+```
+
+---
+
+## Storing rows as an array in state
+
+Each row is an object. The whole form's row data is one array in state:
+
+```jsx
+const [participants, setParticipants] = useState([
+  { deckId: '', placement: 1 },
+  { deckId: '', placement: 2 },
+])
+```
+
+Rendering the rows is just `.map()` over the array:
+
+```jsx
+{participants.map((p, index) => (
+  <div key={index}>
+    <select value={p.deckId} onChange={(e) => updateParticipant(index, 'deckId', e.target.value)}>
+      ...
+    </select>
+    <input value={p.placement} onChange={(e) => updateParticipant(index, 'placement', parseInt(e.target.value))} />
+  </div>
+))}
+```
+
+---
+
+## Adding a row
+
+Spread the existing array and append a new object:
+
+```jsx
+function addParticipant() {
+  setParticipants([
+    ...participants,
+    { deckId: '', placement: participants.length + 1 }
+  ])
+}
+```
+
+---
+
+## Removing a row
+
+Filter out the row at the given index, then renumber the placements so they stay sequential:
+
+```jsx
+function removeParticipant(index) {
+  const updated = participants
+    .filter((_, i) => i !== index)       // remove the row
+    .map((p, i) => ({ ...p, placement: i + 1 }))  // renumber 1, 2, 3...
+  setParticipants(updated)
+}
+```
+
+The `_` is a convention meaning "I don't need this argument". Here the first argument is the participant value — we only care about the index `i`.
+
+---
+
+## Updating one field of one object in an array
+
+Use `.map()` to find the right row and the computed property name `[field]` to update whichever field was changed:
+
+```jsx
+function updateParticipant(index, field, value) {
+  setParticipants(participants.map((p, i) =>
+    i === index ? { ...p, [field]: value } : p
+  ))
+}
+```
+
+`[field]` uses the value of the `field` variable as the object key:
+
+```js
+field = 'deckId'    → { ...p, deckId: value }
+field = 'placement' → { ...p, placement: value }
+```
+
+This one function handles all fields — you don't need a separate updater for each input.
+
+---
+
+## Validation before submitting
+
+Always validate the whole form before firing any requests:
+
+```jsx
+function validate() {
+  if (!date) return 'Date is required'
+  if (participants.length < 2) return 'A match needs at least 2 participants'
+
+  for (const p of participants) {
+    if (!p.deckId) return 'All participants need a deck selected'
+  }
+
+  // check for duplicate decks
+  const deckIds = participants.map((p) => p.deckId)
+  const unique = new Set(deckIds)
+  if (unique.size !== deckIds.length) return 'Each deck can only appear once'
+
+  return null  // null means no error
+}
+
+function handleSubmit() {
+  const validationError = validate()
+  if (validationError) {
+    setError(validationError)
+    return   // stop here — no fetch
+  }
+  // proceed with fetch
+}
+```
+
+Returning `null` from `validate()` is the convention for "everything is fine". The `for...of` loop is a clean way to check every item in an array and return early on the first problem.
+
+---
+
+## Sequential then parallel fetch
+
+Some operations require a specific order. Creating a match and its players requires:
+
+1. Create the match first to get its `match_id`
+2. Use that `match_id` to create all the match players
+
+You cannot do step 2 without the result of step 1.
+
+```jsx
+// step 1 — create the match
+fetch(`/matches/`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ date, comment, group_id: 1 })
+})
+  .then((res) => res.json())
+  .then((newMatch) => {
+
+    // step 2 — create all match players in parallel
+    return Promise.all(
+      participants.map((p) =>
+        fetch(`/matchplayers/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            match_id: newMatch.match_id,   // use the ID from step 1
+            deck_id: parseInt(p.deckId),
+            placement: p.placement,
+            won: p.placement === 1 ? 1 : 0,
+          })
+        }).then((res) => res.json())
+      )
+    ).then(() => newMatch)  // pass newMatch through to the next .then()
+  })
+  .then((newMatch) => {
+    // step 3 — all done, update the UI
+    onMatchAdded(newMatch.match_id)
+  })
+  .catch((err) => {
+    setError(err.message)
+    setSubmitting(false)
+  })
+```
+
+### The flow visualised
+
+```
+POST /matches/
+      ↓
+   match_id received
+      ↓
+Promise.all([
+  POST /matchplayers/  deck 1  ─┐
+  POST /matchplayers/  deck 2  ─┤ all fire at the same time
+  POST /matchplayers/  deck 3  ─┘
+])
+      ↓
+   all three done
+      ↓
+update UI
+```
+
+Sequential where order matters, parallel where it doesn't. This is the fastest possible approach.
+
+---
+
+## Passing data through a .then() chain
+
+When you need data from an earlier `.then()` in a later one, return it through the chain:
+
+```jsx
+.then((newMatch) => {
+  return Promise.all([...]).then(() => newMatch)  // ← pass newMatch through
+})
+.then((newMatch) => {
+  // newMatch is available here because we returned it above
+  console.log(newMatch.match_id)
+})
+```
+
+Without the `then(() => newMatch)` at the end, the next `.then()` would receive the `Promise.all` result instead of `newMatch`.
+
+---
+
+## Re-fetching vs appending after submit
+
+Two strategies for updating the list after a successful submit:
+
+### Append — fast, no extra request
+
+```jsx
+.then((newMatch) => {
+  setMatches([...matches, newMatch])
+})
+```
+
+Use when: the new item has all the data you need right away.
+
+### Re-fetch — slower, always accurate
+
+```jsx
+function loadMatches() {
+  fetch('/matches/')
+    .then(...)
+    .then((data) => setMatches(data))
+}
+
+.then(() => {
+  loadMatches()  // re-fetch the full list
+})
+```
+
+Use when: the new item needs enrichment from other endpoints (e.g. a match needs player and deck names from `/matches/detail`). Appending a raw match object would show an incomplete card, so re-fetching the enriched version is cleaner.
+
+---
+
+## The toggle pattern for showing a form
+
+Show and hide the form with a boolean state and a single button that changes label:
+
+```jsx
+const [showForm, setShowForm] = useState(false)
+
+<button onClick={() => setShowForm(!showForm)}>
+  {showForm ? 'Cancel' : 'Log match'}
+</button>
+
+{showForm && <AddMatchForm onMatchAdded={handleMatchAdded} />}
+```
+
+When the form submits successfully, hide it:
+
+```jsx
+function handleMatchAdded() {
+  setShowForm(false)
+  loadMatches()
+}
+```
+
+---
+
+## Extracting a load function
+
+When you need to call the same fetch from both `useEffect` and after a form submit, extract it into a named function:
+
+```jsx
+function loadMatches() {
+  setLoading(true)
+  fetch('/matches/')
+    .then(...)
+    .then((data) => {
+      setMatches(data)
+      setLoading(false)
+    })
+}
+
+// call on first load
+useEffect(() => {
+  loadMatches()
+}, [])
+
+// call again after adding a match
+function handleMatchAdded() {
+  setShowForm(false)
+  loadMatches()   // same function, reused
+}
+```
+
+This avoids duplicating the fetch logic and keeps everything in sync.
+
+---
+
+## Quick reference
+
+```
+Dynamic rows:          useState([{ field: '', ... }])
+Add a row:             setItems([...items, newItem])
+Remove a row:          items.filter((_, i) => i !== index)
+Renumber after remove: .map((p, i) => ({ ...p, placement: i + 1 }))
+Update one field:      items.map((p, i) => i === index ? { ...p, [field]: value } : p)
+[field] syntax:        computed property name — uses variable value as key
+Validate first:        return error string or null, check before fetching
+Sequential fetch:      step 2 inside step 1's .then()
+Pass data through:     .then(() => newMatch) to keep data available downstream
+Re-fetch vs append:    append when data is complete, re-fetch when enrichment needed
+Toggle form:           useState(false) + !showForm + {showForm && <Form />}
+Extract load fn:       named function called by both useEffect and onSubmit handler
+```
