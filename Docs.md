@@ -1973,3 +1973,330 @@ Re-fetch vs append:    append when data is complete, re-fetch when enrichment ne
 Toggle form:           useState(false) + !showForm + {showForm && <Form />}
 Extract load fn:       named function called by both useEffect and onSubmit handler
 ```
+
+# File input, useRef, and CSV parsing in React
+
+---
+
+## The problem with native file inputs
+
+A native `<input type="file">` is ugly and impossible to style consistently across browsers. The solution is to hide it completely and trigger it programmatically from a styled button you control.
+
+---
+
+## useRef — a direct reference to a DOM element
+
+`useRef` gives you a persistent reference to something — usually a DOM element. Unlike `useState`, updating a ref does not cause a re-render. Its main use case is reaching into the DOM directly when React's declarative model isn't enough.
+
+```jsx
+import { useRef } from 'react'
+
+const fileInputRef = useRef(null)
+```
+
+`useRef(null)` creates a ref with an initial value of `null`. Once attached to an element via the `ref` prop, `fileInputRef.current` becomes that DOM element:
+
+```jsx
+<input ref={fileInputRef} type="file" />
+// fileInputRef.current is now the <input> DOM element
+// fileInputRef.current.click() programmatically opens the file picker
+```
+
+---
+
+## The hidden file input pattern
+
+```jsx
+const fileInputRef = useRef(null)
+
+return (
+  <>
+    {/* hidden — the browser's file picker, but invisible */}
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".csv,.tsv,.txt"
+      onChange={handleFile}
+      className="hidden"
+    />
+
+    {/* styled button that triggers the hidden input */}
+    <button onClick={() => fileInputRef.current.click()}>
+      Import CSV
+    </button>
+  </>
+)
+```
+
+Clicking the styled button calls `.click()` on the hidden input, which opens the OS file picker. When the user selects a file, `onChange` fires and `handleFile` receives the event.
+
+### Resetting the input after use
+
+If the user selects the same file twice, `onChange` won't fire the second time because the value hasn't changed. Reset it after each use:
+
+```jsx
+function handleFile(e) {
+  const file = e.target.files[0]
+  e.target.value = ''   // reset so the same file can be selected again
+  // process the file...
+}
+```
+
+---
+
+## Reading a file in the browser
+
+The browser gives you a `File` object via `e.target.files[0]`. Modern browsers support `.text()` directly on the file — no `FileReader` needed:
+
+```jsx
+async function handleFile(e) {
+  const file = e.target.files[0]
+  if (!file) return
+
+  const text = await file.text()
+  // text is now the full file contents as a string
+}
+```
+
+`.text()` returns a Promise, so use `await` inside an `async` function.
+
+### accept attribute — filter file types
+
+```jsx
+<input type="file" accept=".csv,.tsv,.txt" />
+```
+
+`accept` filters which files appear in the picker. The user can still bypass this, so always validate the contents after reading.
+
+---
+
+## Parsing CSV in the browser
+
+There is no built-in CSV parser in JavaScript. For simple CSVs (no quoted fields containing commas) you can parse it manually.
+
+### Detecting the delimiter
+
+Check the first line to decide whether the file uses tabs or commas:
+
+```jsx
+const delimiter = lines[0].includes('\t') ? '\t' : ','
+```
+
+### Parsing headers and rows
+
+```jsx
+function parseCSV(text) {
+  const lines = text.trim().split('\n').filter(Boolean)
+  if (lines.length < 2) return []
+
+  const delimiter = lines[0].includes('\t') ? '\t' : ','
+
+  // parse header row — strip BOM character (\uFEFF) that Excel sometimes adds
+  const headers = lines[0]
+    .split(delimiter)
+    .map(h => h.trim().replace(/^\uFEFF/, ''))
+
+  // parse data rows into objects
+  return lines.slice(1).map(line => {
+    const values = line.split(delimiter)
+    const row = {}
+    headers.forEach((h, i) => {
+      row[h] = (values[i] || '').trim()
+    })
+    return row
+  })
+}
+```
+
+Result — an array of objects, one per row, keyed by header name:
+
+```js
+[
+  { Decklist: 'Voja,Temmet,Aesi', match_result: '1, 0, 0', date: '31.03.25' },
+  { Decklist: 'Aesi,Temmet,Voja', match_result: '1, 0, 0', date: '31.03.25' },
+]
+```
+
+---
+
+## Parsing comma-separated values within a field
+
+When a single CSV field itself contains comma-separated values (like `Voja,Temmet,Aesi`), parse it separately:
+
+```jsx
+function parseList(raw) {
+  return raw
+    .trim()
+    .replace(/[\[\]]/g, '')   // strip brackets like [1, 0, 0]
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)          // remove empty strings
+}
+
+parseList('Voja, Temmet, Aesi')      // ['Voja', 'Temmet', 'Aesi']
+parseList('[1, 0, 0, 0]')            // ['1', '0', '0', '0']
+parseList('Edgar')                   // ['Edgar']
+```
+
+---
+
+## Parsing dates from multiple formats
+
+```jsx
+function parseDate(raw) {
+  raw = raw.trim()
+
+  // DD.MM.YY → 20YY-MM-DD
+  let m = raw.match(/^(\d{2})\.(\d{2})\.(\d{2})$/)
+  if (m) return `20${m[3]}-${m[2]}-${m[1]}`
+
+  // DD.MM.YYYY → YYYY-MM-DD
+  m = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`
+
+  // already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+
+  return null  // unrecognised format
+}
+```
+
+---
+
+## Processing rows one at a time vs in parallel
+
+When importing multiple rows, process them sequentially so one failure doesn't block others and you can collect all errors:
+
+```jsx
+// ✅ sequential — errors are isolated per row
+const errors = []
+let success = 0
+
+for (let i = 0; i < rows.length; i++) {
+  try {
+    await importRow(rows[i], deckMap)
+    success++
+  } catch (err) {
+    errors.push(`Row ${i + 2}: ${err.message}`)  // +2 because row 1 is header
+  }
+}
+```
+
+```jsx
+// ❌ parallel with Promise.all — one failure rejects everything
+await Promise.all(rows.map(row => importRow(row, deckMap)))
+```
+
+Use sequential for imports where partial success is acceptable. Use `Promise.all` when all-or-nothing is required.
+
+---
+
+## Building a lookup map for fast name resolution
+
+When you need to match names from a file against database records, fetch all records once and build a lookup object. Much faster than fetching one record per name:
+
+```jsx
+async function fetchAllDecks() {
+  const res = await fetch(`${API_BASE}/decks/`)
+  const decks = await res.json()
+
+  // build lowercase name → id map for case-insensitive lookup
+  const map = {}
+  decks.forEach(d => {
+    map[d.deckname.toLowerCase()] = d.deckid
+  })
+  return map
+}
+
+// usage — case-insensitive lookup
+const deckId = deckMap[name.toLowerCase()]
+if (!deckId) throw new Error(`Deck not found: "${name}"`)
+```
+
+---
+
+## Showing import results to the user
+
+Store the result as an object with `success` count and `errors` array. Render it conditionally after the import finishes:
+
+```jsx
+const [result, setResult] = useState(null)
+
+// after import
+setResult({ success: 3, errors: ['Row 4: Deck not found: "Xyz"'] })
+
+// in JSX
+{result && (
+  <div className={result.errors.length === 0 ? 'bg-green-50' : 'bg-amber-50'}>
+    <p>{result.success} matches imported</p>
+    {result.errors.map((e, i) => (
+      <p key={i}>{e}</p>
+    ))}
+  </div>
+)}
+```
+
+---
+
+## The BOM character
+
+Excel-exported CSV files sometimes start with an invisible `\uFEFF` byte order mark (BOM). It attaches to the first header name and causes lookups to fail silently:
+
+```js
+// header appears as '\uFEFFmatch_id' instead of 'match_id'
+row['\uFEFFmatch_id']  // undefined — key doesn't match
+
+// strip it when parsing headers
+.replace(/^\uFEFF/, '')
+```
+
+Always strip it when reading CSV headers.
+
+---
+
+## The sequential fetch pattern for related records
+
+When creating records that depend on each other, step through them in order:
+
+```jsx
+// step 1 — create the parent record, get its ID
+const matchRes = await fetch(`/matches/`, { method: 'POST', body: ... })
+const newMatch = await matchRes.json()
+
+// step 2 — create all child records in parallel using the parent ID
+await Promise.all(
+  participants.map(p =>
+    fetch(`/matchplayers/`, {
+      method: 'POST',
+      body: JSON.stringify({ match_id: newMatch.match_id, ...p })
+    })
+  )
+)
+```
+
+Step 1 is sequential (must have the ID first). Step 2 is parallel (all players are independent of each other).
+
+---
+
+## Quick reference
+
+```
+useRef(null)              create a ref, initially null
+ref={myRef}               attach ref to a DOM element
+myRef.current             the actual DOM element
+myRef.current.click()     programmatically click a hidden input
+e.target.files[0]         the File object the user selected
+e.target.value = ''       reset input so same file can be re-selected
+await file.text()         read file contents as a string
+accept=".csv,.tsv"        filter file types in the picker
+
+parseCSV(text)            split by \n then by delimiter into objects
+parseList(raw)            split a field's comma-separated values into array
+parseDate(raw)            normalise date formats to YYYY-MM-DD
+\uFEFF                    BOM character — strip from CSV headers
+.toLowerCase()            case-insensitive name matching
+
+sequential for-loop       process rows one at a time, collect errors
+Promise.all               process rows in parallel, fails together
+lookup map                fetch all records once, build { name: id } object
+```
