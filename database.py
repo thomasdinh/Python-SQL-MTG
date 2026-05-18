@@ -7,10 +7,14 @@ import os
 load_dotenv('login.env')
 
 HOST = 'localhost'
+if os.getenv("DB_HOST"):
+    HOST = os.getenv("DB_HOST")
 PORT = 3306
+if os.getenv("DB_PORT"):
+    PORT = int(os.getenv("DB_PORT"))
 PASSWORD = os.getenv("DB_PASSWORD")
 USER = os.getenv("DB_USER")
-DATABASE = 'mtgdb'
+DATABASE = os.getenv("DB_NAME")
 
 Base = declarative_base()
 
