@@ -231,10 +231,18 @@ class MatchPlayer(Base):
 # ── Quick smoke-test ──────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
+
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            print("✅ Connection successful!", result.fetchone())
+    except Exception as e:
+        print("❌ Connection failed:", e)
+    """
     db = DatabaseManager()
     matches = db.select(Deck, {"deckname":"Pantlaza"})
     print(matches)
-   
+    """
 
     # --- Raw SELECT ---
     """ print("\n── Raw SELECT ──────────────────────────────────")
