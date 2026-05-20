@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { API_BASE } from '../config'
+import  API_BASE  from '../config'
 
 function AddDeckForm ({ playerId, onDeckAdded, onClickClose }) {
   const [deckname, setDeckname] = useState('')
