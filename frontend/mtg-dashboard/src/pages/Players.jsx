@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronRight, User } from 'lucide-react'
 import AddButton from '../components/AddButton'
 import AddPlayerForm from '../components/AddPlayerForm'
-
-const API_BASE = 'http://localhost:8000'
+import  API_BASE  from '../config'
 
 function Players () {
   const [players, setPlayers] = useState([])

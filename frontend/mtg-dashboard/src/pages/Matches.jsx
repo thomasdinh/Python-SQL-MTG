@@ -3,8 +3,7 @@ import { Plus, X } from 'lucide-react'
 import MatchCard from '../components/MatchCard'
 import AddMatchForm from '../components/AddMatchForm'
 import ImportMatchesButton from '../components/ImportMatchesButton'
-
-const API_BASE = 'http://localhost:8000'
+import  API_BASE  from '../config'
 
 function Matches () {
   const [matches, setMatches] = useState([])

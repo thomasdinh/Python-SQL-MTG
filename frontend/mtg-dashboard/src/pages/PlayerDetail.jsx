@@ -6,8 +6,7 @@ import AddDeckForm from '../components/AddDeckForm'
 import WinRateChart from '../components/WinRateChart'
 import PlacementChart from '../components/PlacementChart'
 import AddButton from '../components/AddButton'
-
-const API_BASE = 'http://localhost:8000'
+import  API_BASE from '../config'
 
 function PlayerDetail () {
   const { id } = useParams()

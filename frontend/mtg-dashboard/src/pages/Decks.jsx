@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react'
 import DeckList from '../components/DeckList'
 import AddDeckForm from '../components/AddDeckForm'
 import AddButton from '../components/AddButton'
-
-const API_BASE = 'http://localhost:8000'
+import  API_BASE  from '../config'
 
 function Decks () {
   const [decks, setDecks] = useState([])

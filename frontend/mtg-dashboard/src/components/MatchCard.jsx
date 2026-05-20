@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trash2, Trophy, Swords } from 'lucide-react'
-const API_BASE = 'http://localhost:8000'
+import  API_BASE  from '../config'
 
 function MatchCard ({ match, onMatchDeleted }) {
   const [deleting, setDeleting] = useState(false)

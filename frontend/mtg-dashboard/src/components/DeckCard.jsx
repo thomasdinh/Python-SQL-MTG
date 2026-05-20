@@ -11,8 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import MatchHistory from './MatchHistory'
 import PlayerSelector from './PlayerSelector'
-
-const API_BASE = 'http://localhost:8000'
+import  API_BASE  from '../config'
 
 function DeckCard ({ deck, onDeckDeleted, onDeckUpdated }) {
   const navigate = useNavigate()
