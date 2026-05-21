@@ -26,6 +26,10 @@ def get_engine():
     try:
         engine = create_engine(
             f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}',
+            pool_size=2,          # keep 2 connections open permanently
+            max_overflow=2,       # allow 2 extra in bursts → 4 total, safely under the limit
+            pool_timeout=30,      # wait up to 30s for a connection before erroring
+            pool_recycle=1800,    # recycle connections every 30min to avoid stale ones
             pool_pre_ping=True,   # reconnect if a connection drops
             echo=False,           # set True to log all SQL statements
         )
