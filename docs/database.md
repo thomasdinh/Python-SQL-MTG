@@ -143,6 +143,7 @@ ORDER BY mp.placement;
 
 ## Entity Relationship Summary
 
+![Databaseschema](/docs/images/database-schema.png)
 ```
 Users
   userid (PK)
