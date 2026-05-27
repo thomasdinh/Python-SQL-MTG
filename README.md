@@ -101,11 +101,24 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 4. Copy and fill in environment variables
-cp ../.env.example .env
+touch login.env
 
-# 5. Start the development server
+#5. Edit .env var if neccessary
+
+
+# 6. Start the development server
 uvicorn FastApi:app --reload
 ```
+
+How the . env file should look like
+```
+DB_USER=YOUR_DB_USER
+DB_PASSWORD=YOUR_DB_PASSWORD
+DB_HOST=localhost               #change to webservice-url if you have a online server
+DB_PORT=3306
+DB_NAME=YOUR_DB_NAME
+```
+
 
 The API will be available at `http://localhost:8000`.
 Interactive docs at `http://localhost:8000/docs`.
