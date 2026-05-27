@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 
 import uvicorn
-import backend.database as database
-import backend.schemas as schemas
+import database as database
+import schemas as schemas
 
 app = FastAPI()  # ← only ONE of these
 
