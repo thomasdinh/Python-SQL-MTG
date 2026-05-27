@@ -51,21 +51,27 @@ MTG Commander Tracker lets you log Commander (EDH) matches, track win rates per 
 ## Project Structure
 
 ```
-mtg-commander-tracker/
+python-sql-mtg/
 ├── backend/
-│   ├── FastApi.py           # FastAPI app entry point
-│   ├── database.py          # MySQL connection & session
-|   ├── schemas.py           # Pydantic schemas
-|   ├── login.env
+│   ├── FastApi.py                  # FastAPI app entry point
+│   ├── database.py                 # MySQL connection & session
+|   ├── schemas.py                  # Pydantic schemas
+|   ├── login.env                   # create your .env file here
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Page-level views
-│   │   ├── services/        # Axios API calls
+│   │   ├── components/             # Reusable UI components
+│   │   │    ├── AddButtons.jsx
+│   │   │    ├── AddDeckForm.jsx
+│   │   │    ├── AddMatchForm.jsx
+│   │   │    ├── ...                # more UI components
+│   │   ├── pages/                  # Page-level views
+│   │   │    ├── DeckDetail.jsx
+│   │   │    ├── Decks.jsx
+│   │   │    ├── ...                #more Pages
+│   │   ├── services/               # Axios API calls
 │   │   └── App.jsx
 │   └── package.json
-├── .env.example
 └── README.md
 ```
 
