@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, Column, Integer, String, Date
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
+import pydoc
 import os
 
 load_dotenv('login.env')
@@ -190,7 +191,14 @@ class Deck(Base):
         return f"<Deck(deckid={self.deckid}, deckname='{self.deckname}', partnername='{self.partnername}', color='{self.color}', manavalue={self.manavalue}, ownerid={self.ownerid}, image_url='{self.image_url}')>"
 
 class MtgMatch(Base):
-    """Example model for matches."""
+    """Example model for matches.
+    parameters:
+    - match_id: unique identifier for each match (primary key)
+        - Decklist: name of the deck used in the match (string, not null)
+        - match_result: outcome of the match (string, e.g., 'win', 'loss', 'draw')
+        - date: date of the match (string, not null, format 'YYYY-MM-DD')
+        - group_id: identifier for the group or tournament (integer)
+        - comment: optional notes about the match (string)"""
     __tablename__ = 'MTGMatches'
 
     match_id        = Column(Integer, primary_key=True, autoincrement=True)
