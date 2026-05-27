@@ -53,14 +53,10 @@ MTG Commander Tracker lets you log Commander (EDH) matches, track win rates per 
 ```
 mtg-commander-tracker/
 ├── backend/
-│   ├── main.py              # FastAPI app entry point
+│   ├── FastApi.py           # FastAPI app entry point
 │   ├── database.py          # MySQL connection & session
-│   ├── models.py            # SQLAlchemy models
-│   ├── schemas.py           # Pydantic schemas
-│   ├── routers/
-│   │   ├── matches.py       # Match endpoints
-│   │   ├── commanders.py    # Commander endpoints
-│   │   └── players.py       # Player endpoints
+|   ├── schemas.py           # Pydantic schemas
+|   ├── login.env
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -102,7 +98,7 @@ pip install -r requirements.txt
 cp ../.env.example .env
 
 # 5. Start the development server
-uvicorn main:app --reload
+uvicorn FastApi:app --reload
 ```
 
 The API will be available at `http://localhost:8000`.

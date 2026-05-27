@@ -1024,3 +1024,4 @@ login.env
 backend/__pycache__/database.cpython-312.pyc
 backend/__pycache__/FastApi.cpython-312.pyc
 backend/__pycache__/schemas.cpython-312.pyc
+backend/login.env
