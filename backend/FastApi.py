@@ -11,7 +11,11 @@ import uvicorn
 import database as database
 import schemas as schemas
 
-app = FastAPI()  # ← only ONE of these
+app = FastAPI(
+    title="MTG Commander Tracker",
+    description="API for tracking Commander match results, decks, and player stats.",
+    version="1.0.0"
+)  # ← only ONE of these
 
 app.add_middleware(
     CORSMiddleware,
