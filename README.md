@@ -1,10 +1,10 @@
-# 🃏 MTG Commander Tracker
+#  MTG Commander Tracker
 
 A full-stack web application for tracking **Magic: The Gathering Commander** match results, statistics, and player performance.
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
@@ -183,17 +183,60 @@ Once the backend is running, visit:
 - **Swagger UI:** `http://localhost:8000/docs`
 - **ReDoc:** `http://localhost:8000/redoc`
 
-### Main Endpoints
+> Default port is `8000`, configurable via the `PORT` environment variable.
 
-| Method | Endpoint                        | Description                        |
-|--------|---------------------------------|------------------------------------|
-| GET    | `/matches`                      | List all matches                   |
-| POST   | `/matches`                      | Log a new match                    |
-| GET    | `/matches/{id}`                 | Get a specific match               |
-| GET    | `/commanders`                   | List all commanders                |
-| GET    | `/commanders/{id}/stats`        | Get win rate & stats for commander |
-| GET    | `/players`                      | List all players                   |
-| GET    | `/players/{id}/stats`           | Get stats for a player             |
+---
+
+### Users
+
+| Method | Endpoint              | Description              |
+|--------|-----------------------|--------------------------|
+| GET    | `/users/`             | List all users           |
+| GET    | `/users/{user_id}`    | Get a user by ID         |
+| POST   | `/users/`             | Create a new user        |
+| PUT    | `/users/{user_id}`    | Update a user by ID      |
+| DELETE | `/users/{user_id}`    | Delete a user by ID      |
+
+---
+
+### Matches
+
+| Method | Endpoint                        | Description                                          |
+|--------|---------------------------------|------------------------------------------------------|
+| GET    | `/matches/`                     | List all matches                                     |
+| GET    | `/matches/{match_id}`           | Get a match by ID                                    |
+| GET    | `/matches/{match_id}/detail`    | Get full match detail (players, decks, placements)   |
+| POST   | `/matches/`                     | Create a new match                                   |
+| PUT    | `/matches/{match_id}`           | Update a match by ID                                 |
+| DELETE | `/matches/{match_id}`           | Delete a match by ID                                 |
+| GET    | `/matches_by_deck/{deck_id}`    | List all matches played with a specific deck         |
+| GET    | `/matches_by_player/{ownerid}`  | List all matches played by a specific player         |
+
+---
+
+### Decks
+
+| Method | Endpoint                          | Description                        |
+|--------|-----------------------------------|------------------------------------|
+| GET    | `/decks/`                         | List all decks                     |
+| GET    | `/decks/{deck_id}`                | Get a deck by ID                   |
+| GET    | `/decks/name/{deckname}`          | Get a deck by name                 |
+| GET    | `/decks_by_player/{ownerid}`      | List all decks owned by a player   |
+| POST   | `/decks/`                         | Create a new deck                  |
+| PUT    | `/decks/{deck_id}`                | Update a deck by ID                |
+| DELETE | `/decks/{deck_id}`                | Delete a deck by ID                |
+| DELETE | `/decks/name/{deckname}`          | Delete a deck by name              |
+
+---
+
+### Match Players
+
+| Method | Endpoint                    | Description                          |
+|--------|-----------------------------|--------------------------------------|
+| GET    | `/matchplayers/{mp_id}`     | Get a match-player entry by ID       |
+| POST   | `/matchplayers/`            | Add a player entry to a match        |
+| PUT    | `/matchplayers/{mp_id}`     | Update a match-player entry          |
+| DELETE | `/matchplayers/{mp_id}`     | Remove a player entry from a match   |
 
 ---
 
@@ -207,4 +250,4 @@ Once the backend is running, visit:
 
 ---
 
-> Built with ❤️ for the Commander community.
+> Built with for improving and using skills acquired in university
