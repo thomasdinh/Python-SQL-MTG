@@ -7,6 +7,7 @@ import WinRateChart from '../components/WinRateChart'
 import PlacementChart from '../components/PlacementChart'
 import WinRateProgressionChart from '../components/WinRateProgressionChart'
 import HeadToHead from '../components/HeadToHead'
+import DeckTierList from '../components/DeckTierList'
 import AddButton from '../components/AddButton'
 import StatCard from '../components/StatCard'
 import { usePlayer, usePlayers } from '../hooks/useUsers'
@@ -44,6 +45,15 @@ function PlayerDetail () {
       .map((m) => m.players.find((p) => p.owner_id === ownerId).won)
     return computeStreaks(chronological)
   }, [allMatches, id])
+
+  // DeckTierList computes its own stats from raw deck + match data (so its
+  // own timespan/playgroup filters work), so it needs the plain deck list
+  // scoped to this player — not the pre-aggregated /decks/with-stats data
+  // used for the stat cards above.
+  const playerDecks = useMemo(
+    () => allDecks.filter((d) => d.ownerid === parseInt(id)),
+    [allDecks, id]
+  )
 
   if (playerError) {
     navigate('/players')
@@ -113,6 +123,12 @@ function PlayerDetail () {
         )}
         {totalMatches > 0 && (
           <HeadToHead matches={allMatches} players={allPlayers} subjectOwnerId={parseInt(id)} />
+        )}
+        {playerDecks.length > 0 && (
+          <div className="bg-surface border border-hairline rounded-lg p-5">
+            <h3 className="text-sm font-medium text-parchment mb-4">{t('tierlist.title')}</h3>
+            <DeckTierList decks={playerDecks} matches={allMatches} variant="embedded" />
+          </div>
         )}
       </div>
 

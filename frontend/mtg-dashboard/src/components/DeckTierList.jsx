@@ -216,14 +216,14 @@ function DeckTierList ({ decks, matches, variant = 'page' }) {
               <span className="text-sm font-display tracking-wide text-parchment-faint">—</span>
             </div>
             <div className="flex-1 bg-surface p-3 flex flex-wrap gap-2 items-start">
-              <span className="text-xs text-parchment-faint mr-1 mt-1.5">
-                {t('tierlist.unranked')} ({'<'} {minGames} game{minGames === 1 ? '' : 's'}):
-              </span>
               {unranked.map((d) => (
                 layout === 'cards'
                   ? <TierDeckCard key={d.deckid} deck={d} metric={metric} muted />
                   : <DeckChip key={d.deckid} deck={d} metric={metric} muted />
               ))}
+              <span className="text-xs text-parchment-faint mt-1.5">
+                {t('tierlist.unranked')} ({'<'} {minGames} game{minGames === 1 ? '' : 's'})
+              </span>
             </div>
           </div>
         )}
