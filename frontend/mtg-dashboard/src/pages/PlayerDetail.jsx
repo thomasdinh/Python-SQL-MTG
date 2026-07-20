@@ -88,7 +88,7 @@ function PlayerDetail () {
 
       {player && (
         <h1 className="font-display text-2xl tracking-wide text-parchment mb-6">
-          {player.firstname} {player.lastname}
+          {player.firstname} {player.lastname} - Id: {player.userid}
         </h1>
       )}
 

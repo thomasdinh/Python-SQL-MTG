@@ -393,7 +393,7 @@ def create_match_player(mp: schemas.MatchPlayerRequest):
         return result
     except Exception as e:
         print(f"Error occurred: {e}")
-        raise HTTPException(status_code=500, detail="Error occurred while creating match player")
+        raise HTTPException(status_code=500, detail=f"Error occurred while creating match player: {e}")
     
 @app.delete("/matchplayers/{mp_id}")
 def delete_match_player(mp_id: int):
@@ -420,7 +420,7 @@ def update_match_player(mp_id: int, mp: schemas.MatchPlayerRequest):
         raise  HTTPException(status_code=he.status_code, detail=he.detail)
     except Exception as e:
         print(f"Error occurred: {e}")
-        raise HTTPException(status_code=500, detail="Error occurred while updating match player")
+        raise HTTPException(status_code=500, detail=f"Error occurred while updating match player: {e}")
     
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

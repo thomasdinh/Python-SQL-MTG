@@ -111,6 +111,25 @@ function ImportMatchesButton({ onImportComplete }) {
     return [...missing]
   }
 
+  /**
+   * Reads the backend's actual error detail (FastAPI returns it as JSON
+   * {detail: "..."}) instead of throwing a generic client-side message —
+   * without this, a real backend error (a bad constraint, a bug, whatever)
+   * gets hidden behind the same unhelpful phrase every time, which is
+   * exactly what made a real bug here take longer to diagnose than it
+   * should have.
+   */
+  async function throwOnError (res, fallbackMessage) {
+    if (res.ok) return
+    try {
+      const body = await res.json()
+      throw new Error(body.detail || fallbackMessage)
+    } catch (err) {
+      if (err instanceof SyntaxError) throw new Error(fallbackMessage) // response wasn't JSON
+      throw err
+    }
+  }
+
   async function deleteAllExistingMatches() {
     const res = await fetch(`${API_BASE}/matches/`)
     if (!res.ok) throw new Error('Could not load existing matches to replace')
@@ -118,12 +137,12 @@ function ImportMatchesButton({ onImportComplete }) {
     await Promise.all(
       existing.map(m =>
         fetch(`${API_BASE}/matches/${m.match_id}`, { method: 'DELETE' })
-          .then(r => { if (!r.ok) throw new Error(`Failed to delete existing match #${m.match_id}`) })
+          .then(r => throwOnError(r, `Failed to delete existing match #${m.match_id}`))
       )
     )
   }
 
-  async function importRow(row, deckMap) {
+  async function importRow (row, deckMap) {
     const deckNames = parseList(row['Decklist'] || '')
     const results   = parseList(row['match_result'] || '')
     const date      = parseDate(row['date'] || '')
@@ -159,7 +178,7 @@ function ImportMatchesButton({ onImportComplete }) {
         comment: comment || null,
       })
     })
-    if (!matchRes.ok) throw new Error('Failed to create match')
+    await throwOnError(matchRes, 'Failed to create match')
     const newMatch = await matchRes.json()
 
     await Promise.all(
@@ -173,7 +192,7 @@ function ImportMatchesButton({ onImportComplete }) {
             placement: i + 1,
             won:       results[i] === '1' ? 1 : 0,
           })
-        }).then(r => { if (!r.ok) throw new Error('Failed to create match player') })
+        }).then(r => throwOnError(r, 'Failed to create match player'))
       )
     )
   }
