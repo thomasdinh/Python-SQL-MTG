@@ -1,8 +1,14 @@
 import { useMemo, useState } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
 import ColorIdentity from '../components/ColorIdentity'
+import TierDeckCard from '../components/TierDeckCard'
+import TierThresholdEditor from '../components/TierThresholdEditor'
 import { useDecks } from '../hooks/useDecks'
 import { useMatchesDetailed } from '../hooks/useMatches'
-import { computeDeckStatsInRange, assignTiers, TIER_LEVELS, TIER_COLORS } from '../utils/deckTiers'
+import {
+  computeDeckStatsInRange, assignTiers, TIER_LEVELS, TIER_COLORS,
+  DEFAULT_WINRATE_THRESHOLDS, DEFAULT_USAGE_THRESHOLDS,
+} from '../utils/deckTiers'
 import { useTranslation } from '../i18n/context'
 
 function daysAgo (n) {
@@ -31,6 +37,16 @@ function TierList () {
   const [groupId, setGroupId] = useState(null) // null = overall
   const [metric, setMetric] = useState('winrate') // 'winrate' | 'usage'
   const [minGames, setMinGames] = useState(3)
+  const [layout, setLayout] = useState('compact') // 'compact' | 'cards'
+  const [showThresholds, setShowThresholds] = useState(false)
+
+  // Win rate and usage keep independent, adjustable threshold sets — see
+  // utils/deckTiers.js for why they're not shared.
+  const [winrateThresholds, setWinrateThresholds] = useState(DEFAULT_WINRATE_THRESHOLDS)
+  const [usageThresholds, setUsageThresholds] = useState(DEFAULT_USAGE_THRESHOLDS)
+  const activeThresholds = metric === 'usage' ? usageThresholds : winrateThresholds
+  const activeDefaults = metric === 'usage' ? DEFAULT_USAGE_THRESHOLDS : DEFAULT_WINRATE_THRESHOLDS
+  const setActiveThresholds = metric === 'usage' ? setUsageThresholds : setWinrateThresholds
 
   function applyPreset (key) {
     setPreset(key)
@@ -56,8 +72,8 @@ function TierList () {
   )
 
   const { byTier, unranked } = useMemo(
-    () => assignTiers(deckStats, { metric, minGames }),
-    [deckStats, metric, minGames]
+    () => assignTiers(deckStats, { metric, minGames, thresholds: activeThresholds }),
+    [deckStats, metric, minGames, activeThresholds]
   )
 
   const loading = decksLoading || matchesLoading
@@ -118,24 +134,53 @@ function TierList () {
               className={`${inputClass} w-28`}
             />
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-parchment-dim">{t('tierlist.layout')}</label>
+            <div className="flex border border-hairline rounded-md overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setLayout('compact')}
+                className={`px-3 py-2 text-sm transition-colors ${layout === 'compact' ? 'bg-brass text-ink' : 'text-parchment-dim hover:bg-surface-raised'}`}
+              >
+                {t('tierlist.compact')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayout('cards')}
+                className={`px-3 py-2 text-sm transition-colors border-l border-hairline ${layout === 'cards' ? 'bg-brass text-ink' : 'text-parchment-dim hover:bg-surface-raised'}`}
+              >
+                {t('tierlist.cards')}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-parchment-dim">{t('tierlist.rankBy')}</label>
-          <div className="flex border border-hairline rounded-md overflow-hidden w-fit">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex border border-hairline rounded-md overflow-hidden w-fit">
+              <button
+                type="button"
+                onClick={() => setMetric('winrate')}
+                className={`px-4 py-2 text-sm transition-colors ${metric === 'winrate' ? 'bg-brass text-ink' : 'text-parchment-dim hover:bg-surface-raised'}`}
+              >
+                {t('tierlist.winRateMode')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMetric('usage')}
+                className={`px-4 py-2 text-sm transition-colors border-l border-hairline ${metric === 'usage' ? 'bg-brass text-ink' : 'text-parchment-dim hover:bg-surface-raised'}`}
+              >
+                {t('tierlist.usageMode')}
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setMetric('winrate')}
-              className={`px-4 py-2 text-sm transition-colors ${metric === 'winrate' ? 'bg-brass text-ink' : 'text-parchment-dim hover:bg-surface-raised'}`}
+              onClick={() => setShowThresholds(!showThresholds)}
+              className="flex items-center gap-1.5 text-xs text-parchment-dim hover:text-brass transition-colors"
             >
-              {t('tierlist.winRateMode')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMetric('usage')}
-              className={`px-4 py-2 text-sm transition-colors border-l border-hairline ${metric === 'usage' ? 'bg-brass text-ink' : 'text-parchment-dim hover:bg-surface-raised'}`}
-            >
-              {t('tierlist.usageMode')}
+              <SlidersHorizontal size={12} />
+              {metric === 'usage' ? t('tierlist.usageThresholds') : t('tierlist.winRateThresholds')}
             </button>
           </div>
           <p className="text-xs text-parchment-faint mt-1">
@@ -144,6 +189,17 @@ function TierList () {
               : 'Tiered by matches played, relative to the most-played deck in this range.'}
           </p>
         </div>
+
+        {showThresholds && (
+          <div className="bg-ink-2 border border-hairline rounded-lg p-4">
+            <TierThresholdEditor
+              thresholds={activeThresholds}
+              defaults={activeDefaults}
+              onChange={setActiveThresholds}
+              label={metric === 'usage' ? t('tierlist.usageThresholds') : t('tierlist.winRateThresholds')}
+            />
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -151,7 +207,7 @@ function TierList () {
       ) : (
         <div className="flex flex-col gap-2">
           {TIER_LEVELS.map((tier) => (
-            <TierRow key={tier} tier={tier} decks={byTier[tier]} metric={metric} />
+            <TierRow key={tier} tier={tier} decks={byTier[tier]} metric={metric} layout={layout} />
           ))}
 
           {unranked.length > 0 && (
@@ -159,12 +215,14 @@ function TierList () {
               <div className="w-20 flex-shrink-0 flex items-center justify-center bg-ink-2">
                 <span className="text-sm font-display tracking-wide text-parchment-faint">—</span>
               </div>
-              <div className="flex-1 bg-surface p-3 flex flex-wrap gap-2 items-center">
-                <span className="text-xs text-parchment-faint mr-1">
+              <div className="flex-1 bg-surface p-3 flex flex-wrap gap-2 items-start">
+                <span className="text-xs text-parchment-faint mr-1 mt-1.5">
                   {t('tierlist.unranked')} ({'<'} {minGames} game{minGames === 1 ? '' : 's'}):
                 </span>
                 {unranked.map((d) => (
-                  <DeckChip key={d.deckid} deck={d} metric={metric} muted />
+                  layout === 'cards'
+                    ? <TierDeckCard key={d.deckid} deck={d} metric={metric} muted />
+                    : <DeckChip key={d.deckid} deck={d} metric={metric} muted />
                 ))}
               </div>
             </div>
@@ -175,7 +233,7 @@ function TierList () {
   )
 }
 
-function TierRow ({ tier, decks, metric }) {
+function TierRow ({ tier, decks, metric, layout }) {
   const { t } = useTranslation()
   const empty = decks.length === 0
   return (
@@ -186,11 +244,15 @@ function TierRow ({ tier, decks, metric }) {
       >
         <span className="text-lg font-display tracking-wide text-ink">{tier}</span>
       </div>
-      <div className={`flex-1 p-3 flex flex-wrap gap-2 items-center ${empty ? 'bg-ink-2' : 'bg-surface'}`}>
+      <div className={`flex-1 p-3 flex flex-wrap gap-2 ${layout === 'cards' ? 'items-start' : 'items-center'} ${empty ? 'bg-ink-2' : 'bg-surface'}`}>
         {empty ? (
           <span className="text-xs text-parchment-faint">{t('tierlist.noDecks')}</span>
         ) : (
-          decks.map((d) => <DeckChip key={d.deckid} deck={d} metric={metric} />)
+          decks.map((d) => (
+            layout === 'cards'
+              ? <TierDeckCard key={d.deckid} deck={d} metric={metric} />
+              : <DeckChip key={d.deckid} deck={d} metric={metric} />
+          ))
         )}
       </div>
     </div>

@@ -14,12 +14,19 @@ export const TIER_COLORS = {
   F: '#b5493a',
 }
 
-// Minimum ratio (0–1) required to reach each tier, checked top-down.
-const THRESHOLDS = [0.40, 0.32, 0.3, 0.28, 0.25, 0.20, 0.15, 0.10, 0]
+// Minimum ratio (0–1) required to reach each tier SSS..E, checked top-down —
+// F has no threshold of its own, it's just "below the E threshold".
+// Win rate and usage keep independently adjustable threshold sets: they're
+// different distributions (a 60% win rate and "60% as many games as the
+// most-played deck" mean very different things), and someone tuning what
+// counts as SSS usage shouldn't accidentally also move what counts as SSS
+// win rate.
+export const DEFAULT_WINRATE_THRESHOLDS = [0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10]
+export const DEFAULT_USAGE_THRESHOLDS = [0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10]
 
-function tierForRatio (ratio) {
-  for (let i = 0; i < THRESHOLDS.length; i++) {
-    if (ratio >= THRESHOLDS[i]) return TIER_LEVELS[i]
+function tierForRatio (ratio, thresholds) {
+  for (let i = 0; i < thresholds.length; i++) {
+    if (ratio >= thresholds[i]) return TIER_LEVELS[i]
   }
   return 'F'
 }
@@ -66,8 +73,13 @@ export function computeDeckStatsInRange (decks, matches, { from, to, groupId } =
  * Decks with fewer than `minGames` matches in range are excluded from
  * tiering entirely and returned separately as `unranked` — a deck that
  * went 1-0 shouldn't land in SSS tier off a single lucky game.
+ *
+ * Pass `thresholds` (8 numbers, 0-1, descending — the SSS..E lower bounds)
+ * to override the defaults for whichever metric is active; omit it to use
+ * DEFAULT_WINRATE_THRESHOLDS / DEFAULT_USAGE_THRESHOLDS.
  */
-export function assignTiers (deckStats, { metric = 'winrate', minGames = 3 } = {}) {
+export function assignTiers (deckStats, { metric = 'winrate', minGames = 3, thresholds } = {}) {
+  const activeThresholds = thresholds || (metric === 'usage' ? DEFAULT_USAGE_THRESHOLDS : DEFAULT_WINRATE_THRESHOLDS)
   const ranked = []
   const unranked = []
   const maxMatches = Math.max(0, ...deckStats.map((d) => d.matches))
@@ -80,7 +92,7 @@ export function assignTiers (deckStats, { metric = 'winrate', minGames = 3 } = {
     const ratio = metric === 'usage'
       ? (maxMatches > 0 ? d.matches / maxMatches : 0)
       : (d.winRate ?? 0)
-    ranked.push({ ...d, tier: tierForRatio(ratio), ratio })
+    ranked.push({ ...d, tier: tierForRatio(ratio, activeThresholds), ratio })
   }
 
   const byTier = {}

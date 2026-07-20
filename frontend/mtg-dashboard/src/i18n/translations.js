@@ -31,6 +31,7 @@ export const translations = {
       player: 'Player',
       colors: 'Colors',
       colorless: 'Colorless',
+      reset: 'Reset',
     },
     stat: {
       decks: 'Decks',
@@ -62,6 +63,8 @@ export const translations = {
       rankBy: 'Rank by', winRateMode: 'Win rate', usageMode: 'Usage', minGames: 'Min. games to rank',
       unranked: 'Unranked', noDecks: 'No decks',
       allTime: 'All time', last30: 'Last 30 days', last90: 'Last 90 days', last180: 'Last 6 months', last365: 'Last year', custom: 'Custom range',
+      layout: 'Layout', compact: 'Compact', cards: 'Cards',
+      winRateThresholds: 'Win rate thresholds', usageThresholds: 'Usage thresholds',
     },
     settings: {
       title: 'Settings',
@@ -151,6 +154,7 @@ export const translations = {
       player: 'Spieler',
       colors: 'Farben',
       colorless: 'Farblos',
+      reset: 'Zurücksetzen',
     },
     stat: {
       decks: 'Decks',
@@ -182,6 +186,8 @@ export const translations = {
       rankBy: 'Bewerten nach', winRateMode: 'Siegquote', usageMode: 'Nutzung', minGames: 'Min. Partien für Wertung',
       unranked: 'Nicht gewertet', noDecks: 'Keine Decks',
       allTime: 'Gesamter Zeitraum', last30: 'Letzte 30 Tage', last90: 'Letzte 90 Tage', last180: 'Letzte 6 Monate', last365: 'Letztes Jahr', custom: 'Benutzerdefiniert',
+      layout: 'Ansicht', compact: 'Kompakt', cards: 'Karten',
+      winRateThresholds: 'Siegquoten-Schwellenwerte', usageThresholds: 'Nutzungs-Schwellenwerte',
     },
     settings: {
       title: 'Einstellungen',
@@ -271,6 +277,7 @@ export const translations = {
       player: 'Jugador',
       colors: 'Colores',
       colorless: 'Incoloro',
+      reset: 'Restablecer',
     },
     stat: {
       decks: 'Mazos',
@@ -302,6 +309,8 @@ export const translations = {
       rankBy: 'Clasificar por', winRateMode: 'Tasa de victorias', usageMode: 'Uso', minGames: 'Partidas mín. para clasificar',
       unranked: 'Sin clasificar', noDecks: 'Sin mazos',
       allTime: 'Todo el tiempo', last30: 'Últimos 30 días', last90: 'Últimos 90 días', last180: 'Últimos 6 meses', last365: 'Último año', custom: 'Rango personalizado',
+      layout: 'Diseño', compact: 'Compacto', cards: 'Tarjetas',
+      winRateThresholds: 'Umbrales de tasa de victorias', usageThresholds: 'Umbrales de uso',
     },
     settings: {
       title: 'Ajustes',
