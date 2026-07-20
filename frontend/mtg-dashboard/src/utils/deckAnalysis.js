@@ -81,3 +81,52 @@ export function analyzeDeck (deck, chronologicalResults) {
     trend: computeTrend(chronologicalResults),
   }
 }
+
+const RECENT_FORM_WINDOW = 10
+
+/**
+ * The last N results (default 10), oldest-first — answers "is this deck
+ * hot right now," which a lifetime win rate can hide entirely. An 80%
+ * all-time deck that's lost its last 6 games looks identical to one on a
+ * hot streak if all you show is the aggregate percentage.
+ */
+export function recentForm (chronologicalResults, windowSize = RECENT_FORM_WINDOW) {
+  const results = chronologicalResults.slice(-windowSize)
+  const wins = results.reduce((s, x) => s + x, 0)
+  return { results, wins, losses: results.length - wins }
+}
+
+/**
+ * A single 0-100 number that answers "which deck should I actually trust,"
+ * not just "which deck has the highest percentage." Built on the Wilson
+ * score interval's LOWER bound rather than the raw win rate — this is the
+ * standard fix for the exact problem where a 5-game 80% streak would
+ * otherwise outrank a 120-game 67% record. More games at the same win
+ * rate narrows the interval and pushes the lower bound up toward the true
+ * rate; fewer games leaves it discounted for uncertainty. A small,
+ * capped nudge from recent trend is layered on top so two decks with an
+ * identical history but different current trajectories aren't scored
+ * identically — but it can't override the evidence-based core.
+ */
+export function performanceScore (games, wins, trend) {
+  if (games === 0) return null
+  const { center, margin } = wilsonInterval(wins, games)
+  const lowerBound = Math.max(0, center - margin)
+  let score = lowerBound * 100
+  if (trend) {
+    score += Math.max(-5, Math.min(5, trend.deltaPct * 0.1))
+  }
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+/**
+ * How many of this deck's games fall within the last N days (default 30)
+ * — separates "actively piloted" from "high win rate but haven't touched
+ * it since spring," which games-count-alone can't distinguish.
+ */
+export function gamesInLastNDays (dates, days = 30) {
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - days)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  return dates.filter((d) => d && d >= cutoffStr).length
+}

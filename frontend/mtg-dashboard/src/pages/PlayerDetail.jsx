@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import DeckList from '../components/DeckList'
 import AddDeckForm from '../components/AddDeckForm'
-import DeckAnalysisTable from '../components/DeckAnalysisTable'
-import PlacementChart from '../components/PlacementChart'
+import DeckAnalysisCards from '../components/DeckAnalysisCards'
 import WinRateProgressionChart from '../components/WinRateProgressionChart'
 import HeadToHead from '../components/HeadToHead'
 import DeckTierList from '../components/DeckTierList'
@@ -12,7 +11,7 @@ import AddButton from '../components/AddButton'
 import StatCard from '../components/StatCard'
 import { usePlayer, usePlayers } from '../hooks/useUsers'
 import { useDecksWithStats, useDecks, useInvalidateDecks } from '../hooks/useDecks'
-import { useMatchesByPlayer, useMatchesDetailed, useInvalidateMatches } from '../hooks/useMatches'
+import { useMatchesDetailed, useInvalidateMatches } from '../hooks/useMatches'
 import { computeStreaks } from '../utils/streaks'
 import { useTranslation } from '../i18n/context'
 
@@ -27,7 +26,6 @@ function PlayerDetail () {
     isLoading: decksLoading,
     error: decksError
   } = useDecksWithStats(id)
-  const { data: matchPlayers = [] } = useMatchesByPlayer(id)
   const { data: allMatches = [] } = useMatchesDetailed()
   const { data: allDecks = [] } = useDecks()
   const { data: allPlayers = [] } = usePlayers()
@@ -110,8 +108,7 @@ function PlayerDetail () {
       </div>
 
       <div className='flex flex-col gap-6 mb-6'>
-        <DeckAnalysisTable decks={playerDecks} matches={allMatches} />
-        <PlacementChart matchPlayers={matchPlayers} />
+        <DeckAnalysisCards decks={playerDecks} matches={allMatches} />
         {totalMatches > 0 && (
           <WinRateProgressionChart
             matches={allMatches}

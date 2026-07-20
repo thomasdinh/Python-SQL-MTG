@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Layers } from 'lucide-react'
 import MatchHistory from '../components/MatchHistory'
-import PlacementChart from '../components/PlacementChart'
+import RecentForm from '../components/RecentForm'
 import WinRateProgressionChart from '../components/WinRateProgressionChart'
 import ColorIdentity from '../components/ColorIdentity'
 import StatCard from '../components/StatCard'
@@ -41,12 +41,11 @@ function DeckDetail() {
   const avgPlacement = totalMatches > 0
     ? (matchPlayers.reduce((sum, mp) => sum + mp.placement, 0) / totalMatches).toFixed(1)
     : '—'
-  const streaks = computeStreaks(
-    matchPlayers
-      .slice()
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-      .map((mp) => mp.won)
-  )
+  const chronologicalResults = matchPlayers
+    .slice()
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+    .map((mp) => mp.won)
+  const streaks = computeStreaks(chronologicalResults)
 
   return (
     <div className="max-w-3xl mx-auto p-8">
@@ -105,10 +104,11 @@ function DeckDetail() {
         <StatCard label={t('stat.avgPlacement')} value={avgPlacement} />
       </div>
 
-      {/* placement chart */}
+      {/* recent form */}
       {totalMatches > 0 && (
-        <div className="mb-6">
-          <PlacementChart matchPlayers={matchPlayers} />
+        <div className="bg-surface border border-hairline rounded-lg p-5 mb-6">
+          <h3 className="text-sm font-medium text-parchment mb-3">{t('analysis.recentForm')}</h3>
+          <RecentForm chronologicalResults={chronologicalResults} />
         </div>
       )}
 
