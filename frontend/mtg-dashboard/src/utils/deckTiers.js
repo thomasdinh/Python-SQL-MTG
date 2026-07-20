@@ -15,7 +15,7 @@ export const TIER_COLORS = {
 }
 
 // Minimum ratio (0–1) required to reach each tier, checked top-down.
-const THRESHOLDS = [0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10, 0]
+const THRESHOLDS = [0.40, 0.32, 0.3, 0.28, 0.25, 0.20, 0.15, 0.10, 0]
 
 function tierForRatio (ratio) {
   for (let i = 0; i < THRESHOLDS.length; i++) {
