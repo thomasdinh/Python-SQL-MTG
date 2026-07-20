@@ -21,7 +21,7 @@ export const TIER_COLORS = {
 // most-played deck" mean very different things), and someone tuning what
 // counts as SSS usage shouldn't accidentally also move what counts as SSS
 // win rate.
-export const DEFAULT_WINRATE_THRESHOLDS = [0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10]
+export const DEFAULT_WINRATE_THRESHOLDS = [0.4, 0.33, 0.3, 0.27, 0.25, 0.2, 0.15, 0.10]
 export const DEFAULT_USAGE_THRESHOLDS = [0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10]
 
 function tierForRatio (ratio, thresholds) {

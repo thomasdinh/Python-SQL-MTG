@@ -1,106 +1,161 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ChevronRight, User } from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import DeckList from '../components/DeckList'
+import AddDeckForm from '../components/AddDeckForm'
+import WinRateChart from '../components/WinRateChart'
+import PlacementChart from '../components/PlacementChart'
+import WinRateProgressionChart from '../components/WinRateProgressionChart'
+import HeadToHead from '../components/HeadToHead'
+import DeckTierList from '../components/DeckTierList'
 import AddButton from '../components/AddButton'
-import AddPlayerForm from '../components/AddPlayerForm'
-import { usePlayers, useInvalidatePlayers } from '../hooks/useUsers'
-import { useDecks } from '../hooks/useDecks'
-import { useMatchesDetailed } from '../hooks/useMatches'
-import { computePlayerStats, sortPlayers } from '../utils/playerStats'
+import StatCard from '../components/StatCard'
+import { usePlayer, usePlayers } from '../hooks/useUsers'
+import { useDecksWithStats, useDecks, useInvalidateDecks } from '../hooks/useDecks'
+import { useMatchesByPlayer, useMatchesDetailed, useInvalidateMatches } from '../hooks/useMatches'
+import { computeStreaks } from '../utils/streaks'
 import { useTranslation } from '../i18n/context'
 
-function Players () {
+function PlayerDetail () {
   const { t } = useTranslation()
-  const { data: players = [], isLoading, error } = usePlayers()
-  const { data: decks = [] } = useDecks()
-  const { data: matches = [] } = useMatchesDetailed()
-  const invalidatePlayers = useInvalidatePlayers()
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [sort, setSort] = useState('winrate')
+  const { id } = useParams()
   const navigate = useNavigate()
 
-  const PLAYER_SORT_LABELS = {
-    name: t('players.sortName'),
-    winrate: t('players.sortWinrate'),
-    matches: t('players.sortMatches'),
-  }
+  const { data: player, error: playerError } = usePlayer(id)
+  const {
+    data: decks = [],
+    isLoading: decksLoading,
+    error: decksError
+  } = useDecksWithStats(id)
+  const { data: matchPlayers = [] } = useMatchesByPlayer(id)
+  const { data: allMatches = [] } = useMatchesDetailed()
+  const { data: allDecks = [] } = useDecks()
+  const { data: allPlayers = [] } = usePlayers()
+  const invalidateDecks = useInvalidateDecks()
+  const invalidateMatches = useInvalidateMatches()
 
-  const rankedPlayers = useMemo(
-    () => sortPlayers(computePlayerStats(players, matches, decks), sort),
-    [players, matches, decks, sort]
+  const [showAddDeckForm, setShowAddDeckForm] = useState(false)
+
+  const streaks = useMemo(() => {
+    const ownerId = parseInt(id)
+    const chronological = allMatches
+      .filter((m) => m.players.some((p) => p.owner_id === ownerId))
+      .slice()
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      .map((m) => m.players.find((p) => p.owner_id === ownerId).won)
+    return computeStreaks(chronological)
+  }, [allMatches, id])
+
+  // DeckTierList computes its own stats from raw deck + match data (so its
+  // own timespan/playgroup filters work), so it needs the plain deck list
+  // scoped to this player — not the pre-aggregated /decks/with-stats data
+  // used for the stat cards above.
+  const playerDecks = useMemo(
+    () => allDecks.filter((d) => d.ownerid === parseInt(id)),
+    [allDecks, id]
   )
 
-  if (isLoading)
-    return <p className='p-8 text-sm text-parchment-faint'>{t('common.loadingPlayers')}</p>
-  if (error) return <p className='p-8 text-sm text-loss'>{error.message}</p>
-
-  function handleNewPlayerAdded () {
-    invalidatePlayers()
+  if (playerError) {
+    navigate('/players')
+    return null
   }
+
+  function handleDeckAdded () {
+    invalidateDecks()
+  }
+
+  function handleDeckDeleted () {
+    invalidateDecks()
+    invalidateMatches()
+  }
+
+  function handleDeckUpdated () {
+    invalidateDecks()
+  }
+
+  const totalWins = decks.reduce((sum, d) => sum + (d.wins || 0), 0)
+  const totalMatches = decks.reduce((sum, d) => sum + (d.matches || 0), 0)
+  const overallWinRate =
+    totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0
 
   return (
     <div className='p-8'>
-      <div className='flex items-center justify-between mb-6 flex-wrap gap-3'>
-        <h1 className="font-display text-2xl tracking-wide text-parchment">{t('players.title')}</h1>
-        <div className='flex flex-col gap-1'>
-          <label className='text-xs text-parchment-dim'>{t('common.sortBy')}</label>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-            className='bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass'
-          >
-            {Object.entries(PLAYER_SORT_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
+      <button
+        onClick={() => navigate('/players')}
+        className='flex items-center gap-2 text-sm text-parchment-faint hover:text-parchment mb-6 transition-colors'
+      >
+        <ArrowLeft size={14} />
+        {t('common.allPlayers')}
+      </button>
+
+      {player && (
+        <h1 className="font-display text-2xl tracking-wide text-parchment mb-6">
+          {player.firstname} {player.lastname}
+        </h1>
+      )}
+
+      <div className='grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6'>
+        <StatCard label={t('stat.decks')} value={decks.length} />
+        <StatCard label={t('stat.matches')} value={totalMatches} />
+        <StatCard
+          label={t('stat.winRate')}
+          value={totalMatches > 0 ? `${overallWinRate}%` : '—'}
+          tone={totalMatches > 0 ? (overallWinRate >= 50 ? 'win' : 'loss') : undefined}
+        />
+        <StatCard
+          label={t('stat.streak')}
+          value={streaks.current > 0 ? `${streaks.currentType === 'win' ? 'W' : 'L'}${streaks.current}` : '—'}
+          tone={streaks.currentType === 'win' ? 'win' : streaks.currentType === 'loss' ? 'loss' : undefined}
+        />
+      </div>
+
+      <div className='flex flex-col gap-6 mb-6'>
+        <WinRateChart decks={decks} matchPlayers={matchPlayers} />
+        <PlacementChart matchPlayers={matchPlayers} />
+        {totalMatches > 0 && (
+          <WinRateProgressionChart
+            matches={allMatches}
+            players={allPlayers}
+            decks={allDecks}
+            subjectType="player"
+            subjectId={parseInt(id)}
+          />
+        )}
+        {totalMatches > 0 && (
+          <HeadToHead matches={allMatches} players={allPlayers} subjectOwnerId={parseInt(id)} />
+        )}
+        {playerDecks.length > 0 && (
+          <div className="bg-surface border border-hairline rounded-lg p-5">
+            <h3 className="text-sm font-medium text-parchment mb-4">{t('tierlist.title')}</h3>
+            <DeckTierList decks={playerDecks} matches={allMatches} variant="embedded" />
+          </div>
+        )}
+      </div>
+
+      <div className='mb-4'>
+        <DeckList
+          decks={decks}
+          loading={decksLoading}
+          error={decksError ? decksError.message : null}
+          onDeckUpdated={handleDeckUpdated}
+          onDeckDeleted={handleDeckDeleted}
+        />
+        <div>
+          {!showAddDeckForm && (
+            <AddButton onClick={() => setShowAddDeckForm(!showAddDeckForm)} hoverText={t('decks.addDeck')} />
+          )}
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '1rem'
-        }}
-      >
-        {rankedPlayers.map(player => (
-          <button
-            key={player.userid}
-            onClick={() => navigate(`/players/${player.userid}`)}
-            className='bg-surface border border-hairline rounded-lg px-5 py-4 flex items-center gap-4 hover:border-brass-dim transition-colors text-left'
-          >
-            <div className='w-9 h-9 rounded-full bg-surface-raised border border-hairline flex items-center justify-center flex-shrink-0'>
-              <User size={16} className='text-brass' />
-            </div>
-            <div className='flex-1 min-w-0'>
-              <p className='font-medium text-parchment truncate'>
-                {player.firstname} {player.lastname}
-              </p>
-              <p className='text-xs font-mono text-parchment-faint mt-0.5'>
-                {player.matches > 0
-                  ? `${Math.round(player.winRate * 100)}% · ${player.wins}/${player.matches}`
-                  : t('players.noGamesYet')}
-                {' · '}{player.decksOwned} {player.decksOwned === 1 ? t('players.deck') : t('players.decks')}
-              </p>
-            </div>
-            <ChevronRight size={16} className='text-parchment-faint flex-shrink-0' />
-          </button>
-        ))}
-        <div>
-        {!showAddForm && (
-        <AddButton
-          onClick={() => setShowAddForm(!showAddForm)}
-          className='mt-6 '
-          hoverText={t('players.addPlayer')}
+      {showAddDeckForm && (
+        <AddDeckForm
+          playerId={parseInt(id)}
+          onDeckAdded={handleDeckAdded}
+          onClickClose={() => setShowAddDeckForm(false)}
         />
-
       )}
-      </div>
-      </div>
-
-      {showAddForm && <AddPlayerForm onAddPlayer={handleNewPlayerAdded} onClickClose={() => setShowAddForm(false)} />}
     </div>
   )
 }
 
-export default Players
+export default PlayerDetail
