@@ -385,7 +385,8 @@ def create_match_player(mp: schemas.MatchPlayerRequest):
         new_mp = database.MatchPlayer(
             match_id=mp.match_id,
             deck_id=mp.deck_id,
-            placement=mp.placement
+            placement=mp.placement,
+            won=mp.won
         )
         result = db.insert(new_mp)
         
