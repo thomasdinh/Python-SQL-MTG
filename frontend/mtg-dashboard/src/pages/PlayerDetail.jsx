@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import DeckList from '../components/DeckList'
 import AddDeckForm from '../components/AddDeckForm'
-import WinRateChart from '../components/WinRateChart'
+import DeckAnalysisTable from '../components/DeckAnalysisTable'
 import PlacementChart from '../components/PlacementChart'
 import WinRateProgressionChart from '../components/WinRateProgressionChart'
 import HeadToHead from '../components/HeadToHead'
@@ -110,7 +110,7 @@ function PlayerDetail () {
       </div>
 
       <div className='flex flex-col gap-6 mb-6'>
-        <WinRateChart decks={decks} matchPlayers={matchPlayers} />
+        <DeckAnalysisTable decks={playerDecks} matches={allMatches} />
         <PlacementChart matchPlayers={matchPlayers} />
         {totalMatches > 0 && (
           <WinRateProgressionChart
