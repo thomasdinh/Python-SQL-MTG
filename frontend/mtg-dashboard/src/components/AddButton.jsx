@@ -2,12 +2,17 @@ function AddButton ({ onClick, hoverText }) {
   return (
     <button
       onClick={() => onClick()}
-      className='rounded-full m-5 flex items-center gap-2 hover:border-purple-400 focus:outline-2 focus:ring focus:ring-purple-500 hover:shadow-sm transition-all text-left cursor-pointer'
+      className='group flex items-center gap-2 m-1 cursor-pointer'
       title={hoverText}
     >
-      <div className='border border-purple-300 w-9 h-9 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0'>
+      <div className='border border-hairline-2 w-9 h-9 rounded-full bg-surface flex items-center justify-center flex-shrink-0 text-parchment-dim transition-colors group-hover:border-brass group-hover:text-brass'>
         +
       </div>
+      {hoverText && (
+        <span className='text-sm text-parchment-dim transition-colors group-hover:text-parchment'>
+          {hoverText}
+        </span>
+      )}
     </button>
   )
 }

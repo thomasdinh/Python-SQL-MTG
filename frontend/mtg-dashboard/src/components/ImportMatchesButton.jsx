@@ -1,14 +1,16 @@
 import { useState, useRef } from 'react'
 import { Upload } from 'lucide-react'
+import { useTranslation } from '../i18n/context'
 import  API_BASE  from '../config'
 
 function ImportMatchesButton({ onImportComplete }) {
+  const { t } = useTranslation()
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState(null)
   const fileInputRef = useRef(null)
 
   function parseList(raw) {
-    return raw.trim().replace(/[\[\]]/g, '').split(',').map(s => s.trim()).filter(Boolean)
+    return raw.trim().replace(/[[\]]/g, '').split(',').map(s => s.trim()).filter(Boolean)
   }
 
   function parseDate(raw) {
@@ -162,17 +164,17 @@ function ImportMatchesButton({ onImportComplete }) {
       <button
         onClick={() => fileInputRef.current.click()}
         disabled={importing}
-        className="flex items-center gap-2 border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center gap-2 border border-hairline rounded-md px-4 py-2 text-sm text-parchment-dim hover:bg-surface-raised disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <Upload size={14} />
-        {importing ? 'Importing...' : 'Import CSV'}
+        {importing ? 'Importing...' : t('matches.importCsv')}
       </button>
 
       {result && (
-        <div className={`rounded-lg px-4 py-3 text-sm ${
+        <div className={`rounded-md px-4 py-3 text-sm border ${
           result.errors.length === 0
-            ? 'bg-green-50 border border-green-100 text-green-800'
-            : 'bg-amber-50 border border-amber-100 text-amber-800'
+            ? 'bg-win/10 border-win/30 text-win'
+            : 'bg-brass/10 border-brass/30 text-brass'
         }`}>
           <p className="font-medium mb-1">
             {result.success} match{result.success !== 1 ? 'es' : ''} imported

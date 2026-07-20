@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import  API_BASE  from '../config'
+import ColorIdentity from './ColorIdentity'
+import { useTranslation } from '../i18n/context'
 
 function AddDeckForm ({ playerId, onDeckAdded, onClickClose }) {
+  const { t } = useTranslation()
   const [deckname, setDeckname] = useState('')
   const [color, setColor] = useState('')
   const [manavalue, setManavalue] = useState('')
@@ -13,7 +16,7 @@ function AddDeckForm ({ playerId, onDeckAdded, onClickClose }) {
 
   function handleSubmit () {
     if (!deckname.trim()) {
-      setError('Deck name is required')
+      setError(t('forms.deckNameRequired'))
       return
     }
 
@@ -51,82 +54,87 @@ function AddDeckForm ({ playerId, onDeckAdded, onClickClose }) {
       })
   }
 
+  const inputClass = 'bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass placeholder:text-parchment-faint'
+
   return (
-    <div className='bg-white border border-gray-200 rounded-xl p-5 mb-6'>
+    <div className='bg-surface border border-hairline rounded-lg p-5 mb-6'>
       <div className='flex items-center justify-between mb-4 gap-4'>
-        <h2 className='text-sm font-medium text-gray-900 mb-4'>Add a deck</h2>
-        <button className='text-gray-400 hover:text-red-600 cursor-pointer' onClick={() => onClickClose()}>
-          <X />
+        <h2 className='text-sm font-medium text-parchment mb-4'>{t('forms.addDeckTitle')}</h2>
+        <button className='text-parchment-faint hover:text-loss cursor-pointer' onClick={() => onClickClose()}>
+          <X size={18} />
         </button>
       </div>
 
       <div className='flex flex-col gap-3'>
         <div className='flex flex-col-2 gap-3'>
           <div className='flex flex-col gap-1 flex-1'>
-            <label className='text-xs text-gray-500'>Commander name</label>
+            <label className='text-xs text-parchment-dim'>{t('forms.commanderName')}</label>
             <input
               type='text'
               value={deckname}
               onChange={e => setDeckname(e.target.value)}
               placeholder="e.g. Atraxa, Praetors' Voice"
-              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
+              className={inputClass}
             />
           </div>
 
           <div className='flex flex-col gap-1 flex-1'>
-            <label className='text-xs text-gray-500'>Partner (optional)</label>
+            <label className='text-xs text-parchment-dim'>{t('forms.partnerOptional')}</label>
             <input
               type='text'
               value={partnername}
               onChange={e => setPartnername(e.target.value)}
               placeholder='e.g. Thrasios'
-              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
+              className={inputClass}
             />
           </div>
         </div>
 
         <div className='flex flex-col gap-1'>
-          <label className='text-xs text-gray-500'>Image URL (optional)</label>
+          <label className='text-xs text-parchment-dim'>{t('forms.imageUrlOptional')}</label>
           <input
             type='text'
             value={image_url}
             onChange={e => setImageUrl(e.target.value)}
             placeholder='e.g. https://example.com/image.jpg'
-            className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
+            className={inputClass}
           />
         </div>
 
-        <div className='flex flex-col-2 gap-3'>
+        <div className='flex flex-col-2 gap-3 items-end'>
           <div className='flex flex-col gap-1 flex-1'>
-            <label className='text-xs text-gray-500'>Color identity</label>
+            <label className='text-xs text-parchment-dim'>{t('forms.colorIdentity')}</label>
             <input
               type='text'
               value={color}
               onChange={e => setColor(e.target.value)}
               placeholder='e.g. WUBG'
-              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
+              className={inputClass}
             />
           </div>
           <div className='flex flex-col gap-1 flex-1'>
-            <label className='text-xs text-gray-500'>Mana Value</label>
+            <label className='text-xs text-parchment-dim'>{t('forms.manaValue')}</label>
             <input
               type='text'
               value={manavalue}
               onChange={e => setManavalue(e.target.value)}
               placeholder='e.g. 1,2,3...'
-              className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400'
+              className={inputClass}
             />
+          </div>
+          <div className='pb-2'>
+            <ColorIdentity color={color} size={16} />
           </div>
         </div>
 
-        {error && <p className='text-xs text-red-500'>{error}</p>}
+        {error && <p className='text-xs text-loss'>{error}</p>}
 
         <button
           onClick={handleSubmit}
           disabled={submitting}
-          className='bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed'
+          className='bg-brass text-ink rounded-md px-4 py-2 text-sm font-medium hover:bg-brass-dim disabled:opacity-50 disabled:cursor-not-allowed w-fit'
         >
-          {submitting ? 'Adding...' : 'Add deck'}
+          {submitting ? t('forms.adding') : t('decks.addDeck')}
         </button>
       </div>
     </div>

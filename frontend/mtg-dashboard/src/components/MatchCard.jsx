@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Trash2, Trophy, Swords } from 'lucide-react'
 import  API_BASE  from '../config'
+import { useTranslation } from '../i18n/context'
 
 function MatchCard ({ match, onMatchDeleted }) {
+  const { t } = useTranslation()
   const [deleting, setDeleting] = useState(false)
 
   function handleDelete () {
@@ -23,34 +25,34 @@ function MatchCard ({ match, onMatchDeleted }) {
   const isDraw = winners.length > 1
 
   return (
-    <div className='bg-white border border-gray-200 rounded-xl p-5'>
+    <div className='bg-surface border border-hairline rounded-lg p-5'>
       <div className='flex items-center justify-between mb-4'>
-        <p className='text-sm font-medium text-gray-900'>
-          Match #{match.match_id ? match.match_id : '—'}
+        <p className='text-xs font-mono text-parchment-faint'>
+          #{match.match_id ? match.match_id : '—'}
         </p>
-        <p className='text-sm font-medium text-gray-900'>
+        <p className='text-xs font-mono text-parchment-dim'>
           {match.date ? match.date.slice(0, 10) : '—'}
         </p>
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className='text-gray-300 hover:text-red-500 disabled:opacity-50 transition-colors'
+          className='text-parchment-faint hover:text-loss disabled:opacity-50 transition-colors'
         >
           <Trash2 size={15} />
         </button>
       </div>
 
       {isDraw ? (
-        <div className='flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-3'>
-          <Swords size={13} className='text-blue-500 flex-shrink-0' />
-          <span className='text-sm font-medium text-blue-800'>
-            Draw between {winners.length} players
+        <div className='flex items-center gap-2 bg-draw/10 border border-draw/30 rounded-md px-3 py-2 mb-3'>
+          <Swords size={13} className='text-draw flex-shrink-0' />
+          <span className='text-sm font-medium text-parchment'>
+            {t('matches.drawBetween', { n: winners.length })}
           </span>
         </div>
       ) : winners.length === 1 ? (
-        <div className='flex items-center gap-2 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-3'>
-          <Trophy size={13} className='text-green-600 flex-shrink-0' />
-          <span className='text-sm font-medium text-green-800 truncate'>
+        <div className='flex items-center gap-2 bg-win/10 border border-win/30 rounded-md px-3 py-2 mb-3'>
+          <Trophy size={13} className='text-win flex-shrink-0' />
+          <span className='text-sm font-medium text-parchment truncate'>
             {winners[0].deck_name}
           </span>
         </div>
@@ -64,15 +66,15 @@ function MatchCard ({ match, onMatchDeleted }) {
           >
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                player.won === 1 ? 'bg-green-500' : 'bg-gray-300'
+                player.won === 1 ? 'bg-win' : 'bg-hairline-2'
               }`}
             />
-            <span className='text-gray-400 w-6 flex-shrink-0'>
+            <span className='text-parchment-faint w-6 flex-shrink-0 font-mono'>
               #{player.placement}
             </span>
             <span
               className={`flex-1 truncate ${
-                player.won === 1 ? 'text-gray-900 font-medium' : 'text-gray-500'
+                player.won === 1 ? 'text-parchment font-medium' : 'text-parchment-dim'
               }`}
             >
               {player.deck_name}
@@ -82,7 +84,7 @@ function MatchCard ({ match, onMatchDeleted }) {
       </div>
 
       {match.comment && (
-        <p className='text-xs text-gray-400 mt-3'>{match.comment}</p>
+        <p className='text-xs text-parchment-faint mt-3 italic'>{match.comment}</p>
       )}
     </div>
   )

@@ -5,6 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>mtg-dashboard</title>
+    <script>
+      // Applied synchronously, before the app mounts, so there's no flash
+      // of the default dark theme before switching to a saved preference.
+      // Kept minimal and dependency-free on purpose — this can't import
+      // from src/theme.js since it has to run before any module loads.
+      (function () {
+        try {
+          var mode = localStorage.getItem('mtg_theme_mode') || 'dark';
+          var resolved = mode === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+            : mode;
+          document.documentElement.setAttribute('data-theme', resolved);
+
+          var accent = localStorage.getItem('mtg_accent_color');
+          if (accent) {
+            document.documentElement.style.setProperty('--color-brass', accent);
+          }
+        } catch (e) {
+          // localStorage unavailable — fall back to the default dark theme
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

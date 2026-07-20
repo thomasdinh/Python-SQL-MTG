@@ -13,6 +13,8 @@ A personal reference built while developing the MTG Commander Dashboard — a fu
    - [Dictionary vs object](#dictionary-vs-object)
 3. [MySQL](#mysql)
    - [Session variables and LAST_INSERT_ID()](#session-variables-and-last_insert_id)
+   - [Indexes: what they actually do](#indexes-what-they-actually-do)
+   - [Connection pooling](#connection-pooling)
 4. [JavaScript fundamentals](#javascript-fundamentals)
    - [.map()](#map)
    - [.filter() and .find()](#filter-and-find)
@@ -33,6 +35,11 @@ A personal reference built while developing the MTG Commander Dashboard — a fu
    - [Deriving stats from state](#deriving-stats-from-state)
 6. [Tailwind CSS](#tailwind-css)
 7. [Patterns and recipes](#patterns-and-recipes)
+8. [Caching, theming, and a Settings page](#caching-theming-and-a-settings-page)
+   - [Why caching matters](#why-caching-matters)
+   - [Theming — dark, light, and a custom accent color](#theming--dark-light-and-a-custom-accent-color)
+   - [Language settings (i18n) without a big library](#language-settings-i18n-without-a-big-library)
+   - [Building a Settings page — the general pattern](#building-a-settings-page--the-general-pattern)
 
 ---
 
@@ -44,6 +51,7 @@ A personal reference built while developing the MTG Commander Dashboard — a fu
 | **Attribute access** | Reading a value from an object using dot notation: `user.firstname` |
 | **Boolean** | A value that is either `true` or `false` |
 | **Component** | A reusable function in React that returns JSX and represents a piece of UI |
+| **Connection pool** | A set of database connections kept open and reused across requests, instead of opening a new one each time |
 | **Controlled input** | A form input whose value is owned by React state, not the DOM |
 | **CORS** | Cross-Origin Resource Sharing — a browser security rule that blocks requests from one domain to another unless the server allows it |
 | **Dependent fetch** | A second API call that can only run after the first one finishes, because you need data from the first response |
@@ -51,12 +59,15 @@ A personal reference built while developing the MTG Commander Dashboard — a fu
 | **DOM** | Document Object Model — the browser's internal representation of your HTML |
 | **Expression** | Code that produces a value (e.g. `2 + 2`, `decks.map(...)`) |
 | **Falsy** | A value that evaluates to `false` in a boolean context: `null`, `undefined`, `0`, `''`, `false` |
+| **Foreign key** | A column constrained to only hold values that exist in another table's primary key — how the DB enforces "this deck's owner must be a real user" |
 | **Hook** | A special React function (always starts with `use`) that lets you add state or side effects to a component |
+| **Index (database)** | A separate, sorted structure the database engine can search instead of scanning every row — trades a bit of write speed and disk space for much faster lookups/filters/sorts |
 | **JSX** | JavaScript XML — the HTML-like syntax you write inside React components |
 | **Lifting state up** | Moving shared state to the nearest common parent component so multiple children can access it |
 | **Lookup table** | An object keyed by ID used for fast access instead of searching an array every time |
 | **Middleware** | Code that runs between a request arriving and your route handler running — used in FastAPI for CORS |
 | **Mutation** | Directly modifying existing data — React cannot detect this, always create new data instead |
+| **N+1 query problem** | Fetching a list (1 query), then looping over it to fetch detail for each item (N more queries) — fixed by joining the detail into the original query instead |
 | **Nullish** | A value that is `null` or `undefined` specifically (stricter than falsy) |
 | **ORM** | Object Relational Mapper — SQLAlchemy maps Python objects to database rows |
 | **Promise** | A JavaScript object representing a value that does not exist yet but will arrive in the future |
@@ -193,6 +204,72 @@ db.add(match)
 db.flush()
 match_id = match.match_id   # ORM populates this automatically after flush
 ```
+
+### Indexes: what they actually do
+
+A table with no index on a column means "find rows where `deck_id = 5`"
+requires MySQL to check every single row (a full table scan). An index is
+a separate, sorted structure the engine can binary-search instead — same
+idea as an index at the back of a book: you don't read every page, you
+look up the term and jump straight there.
+
+```sql
+-- without an index: full table scan, gets slower as MatchPlayers grows
+SELECT * FROM MatchPlayers WHERE deck_id = 5;
+
+-- add the index once...
+ALTER TABLE MatchPlayers ADD INDEX idx_matchplayers_deck_id (deck_id);
+
+-- ...and the same query becomes an index lookup instead
+```
+
+The cost: every index slows down writes slightly (INSERT/UPDATE has to
+update the index too, not just the table) and takes extra disk space. For
+columns that show up in a `WHERE`, `JOIN ... ON`, or `ORDER BY` far more
+often than the table is written to — which describes almost everything in
+this app — that trade is worth it.
+
+#### Composite / covering indexes
+
+An index can span more than one column. `/decks/with-stats` runs
+`COUNT(mp.id), SUM(mp.won)` grouped by `deck_id` — a composite index on
+`(deck_id, won)` means MySQL can answer that aggregate by reading the index
+alone, without ever touching the actual table rows (a "covering index",
+since the index covers every column the query needs):
+
+```sql
+ALTER TABLE MatchPlayers ADD INDEX idx_matchplayers_deck_won (deck_id, won);
+```
+
+Column order in a composite index matters — `(deck_id, won)` can serve a
+query that filters on `deck_id` alone, or on `deck_id` AND `won` together,
+but not one that filters on `won` alone. Put the column you always filter
+on first.
+
+### Connection pooling
+
+Every request that touches the database needs a connection, and opening a
+new MySQL connection from scratch (TCP handshake + auth) costs real time —
+milliseconds you don't want to pay on every single request. A connection
+pool keeps a set of connections open and hands them out to whichever
+request needs one, instead of opening/closing a connection per request:
+
+```python
+create_engine(
+    url,
+    pool_size=5,      # connections kept open at all times
+    max_overflow=5,   # extra connections allowed under burst load
+    pool_recycle=1800, # close+reopen connections older than this (avoids stale/dropped ones)
+)
+```
+
+The pool size is a real ceiling: if `pool_size + max_overflow` requests are
+all mid-query at once, the next request queues until one frees up (or times
+out, per `pool_timeout`). A page that fires 5 requests in parallel doesn't
+need a pool of 5 — those 5 requests are still 5 separate, fast queries that
+each release their connection quickly — but it's a reminder that the right
+pool size scales with how many *concurrent* requests you actually expect,
+not just how many endpoints you have.
 
 ---
 
@@ -2299,4 +2376,276 @@ parseDate(raw)            normalise date formats to YYYY-MM-DD
 sequential for-loop       process rows one at a time, collect errors
 Promise.all               process rows in parallel, fails together
 lookup map                fetch all records once, build { name: id } object
+```
+
+---
+
+# Caching, theming, and a Settings page
+
+---
+
+## Why caching matters
+
+Before this was fixed, every page in this app re-fetched its data on every
+single visit — navigate away from Decks and back, and it hits the network
+again, shows a loading spinner again, even though nothing changed. Multiply
+that by every page, and the app felt slow even though the actual data was
+tiny.
+
+The fix isn't "make the fetch faster" — it's **don't fetch at all if you
+already have the answer**. That's what a cache is: a place to keep the
+result of a request, keyed by what was requested, so the same request later
+can be answered instantly instead of going back to the network.
+
+`TanStack Query` (the library this project uses) does this with two ideas:
+
+- **Query key** — an array that identifies *what* you're asking for, e.g.
+  `['decks']` or `['deck', 5]`. Same key = same cached result.
+- **Stale time** — how long a cached result is considered "still good
+  enough" before the library will quietly refetch it in the background.
+
+```jsx
+// hooks/useDecks.js
+export function useDecks() {
+  return useQuery({
+    queryKey: ['decks'],
+    queryFn: () => fetch(`${API_BASE}/decks/`).then(r => r.json()),
+  })
+}
+```
+
+```jsx
+// any component
+const { data: decks = [], isLoading } = useDecks()
+```
+
+The first component that calls `useDecks()` triggers the fetch. Every
+*other* component that calls `useDecks()` — even on a totally different
+page — gets the same cached array immediately, no request, no spinner. The
+`queryClient` config sets how long that cache is trusted:
+
+```jsx
+// queryClient.js
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // treat data as fresh for 60s
+      retry: 1,
+    },
+  },
+})
+```
+
+### Cache invalidation — telling it something changed
+
+A cache is only correct until the underlying data changes. When you add,
+edit, or delete something, you have to tell the cache its old answer is no
+longer trustworthy:
+
+```jsx
+const queryClient = useQueryClient()
+
+function handleDeckAdded() {
+  queryClient.invalidateQueries({ queryKey: ['decks'] })
+}
+```
+
+`invalidateQueries` doesn't clear the cache instantly and leave a blank
+screen — it marks it stale and refetches in the background, swapping in the
+new data once it arrives. The old, correct principle from cache design in
+general: **the hard part of caching was never storing the data, it's
+knowing when to throw it away.**
+
+---
+
+## Theming — dark, light, and a custom accent color
+
+The whole theme system is built on one idea: **colors are variables, not
+literal values, everywhere in the CSS.** Every component uses a class like
+`bg-ink` or `text-parchment`, and those classes just point at a CSS custom
+property:
+
+```css
+/* index.css */
+@theme {
+  --color-ink: #14181a;
+  --color-parchment: #ede6d6;
+  --color-brass: #c9a227;
+}
+```
+
+Because nothing in a component ever hardcodes an actual color, swapping the
+theme means **redefining what those variables equal** — not touching a
+single component file:
+
+```css
+:root[data-theme="light"] {
+  --color-ink: #f2ede0;      /* was #14181a */
+  --color-parchment: #26211a; /* was #ede6d6 */
+}
+```
+
+The switch itself is one line of JS: set an attribute on `<html>`, and the
+CSS cascade does the rest.
+
+```js
+document.documentElement.setAttribute('data-theme', 'light')
+```
+
+### A custom accent color, the same way
+
+Since `--color-brass` is just a variable, overriding it for one user's
+chosen accent color doesn't need a CSS file at all — you can set it
+directly from JS as an inline style, which wins over the stylesheet:
+
+```js
+document.documentElement.style.setProperty('--color-brass', '#b5493a')
+```
+
+### The flash-of-wrong-theme problem
+
+If you only apply the saved theme *after* React mounts, there's a visible
+flicker: the page paints with the default theme for a frame, then snaps to
+the saved one. The fix is applying it **before** anything else runs, with a
+tiny inline script in `index.html` itself — before the main JS bundle even
+loads:
+
+```html
+<script>
+  (function () {
+    var mode = localStorage.getItem('mtg_theme_mode') || 'dark'
+    document.documentElement.setAttribute('data-theme', mode)
+  })()
+</script>
+```
+
+This has to be plain, dependency-free JS — it runs before any module
+import is possible.
+
+---
+
+## Language settings (i18n) without a big library
+
+A translation system doesn't need a framework — at its core it's just:
+"look up a string by key, in the currently selected language, with a
+fallback if it's missing."
+
+**1. Dictionaries** — one object per language, same shape:
+
+```js
+// i18n/translations.js
+export const translations = {
+  en: { nav: { home: 'Home', players: 'Players' } },
+  de: { nav: { home: 'Start', players: 'Spieler' } },
+}
+```
+
+**2. A lookup function** that walks a dotted key path (`'nav.home'`) into
+the nested object, and falls back to English — then to the raw key — if a
+translation is missing, so a missing entry shows *something* readable
+instead of crashing or rendering blank:
+
+```js
+function lookup(dict, dotPath) {
+  return dotPath.split('.').reduce((obj, key) => obj?.[key], dict)
+}
+
+function t(key) {
+  return lookup(translations[language], key)
+    ?? lookup(translations['en'], key)
+    ?? key
+}
+```
+
+**3. A React Context** so any component can call `t()` without prop-drilling
+the current language through the whole tree:
+
+```jsx
+const I18nContext = createContext(null)
+
+export function useTranslation() {
+  return useContext(I18nContext)
+}
+```
+
+```jsx
+// any component
+const { t } = useTranslation()
+return <h1>{t('nav.home')}</h1>
+```
+
+Switching languages is just calling `setLanguage('de')`, which updates
+context state — every component using `t()` re-renders with the new
+strings automatically. No page reload needed, unlike the theme's
+CSS-variable approach, because this *is* a normal React re-render.
+
+### One gotcha: don't mix a hook and a component in the same file
+
+React's Fast Refresh tooling expects a file to export *either* components
+*or* non-component values — not both. Exporting a `useTranslation` hook
+next to an `I18nProvider` component from the same file triggers a lint
+error. The fix is splitting them:
+
+```
+i18n/context.js       → the Context object + useTranslation() hook
+i18n/I18nProvider.jsx → the <I18nProvider> component
+```
+
+---
+
+## Building a Settings page — the general pattern
+
+Every setting in this app (API server, theme, accent color, language)
+follows the same three-part shape, and it's worth naming as a pattern
+since it'll come up again for any future setting:
+
+1. **Read**, with a priority chain: explicit user override → build-time
+   default → hardcoded fallback.
+2. **Write**, persisting to `localStorage` so it survives a reload.
+3. **Apply**, either live (re-render, no reload — theme, language) or by
+   reloading (API server — see below for why).
+
+```js
+// config.js — the read priority chain
+export function getApiBase() {
+  return localStorage.getItem('mtg_api_base')  // 1. explicit override
+      || import.meta.env.VITE_API_BASE         // 2. build-time default
+      || 'https://python-sql-mtg.onrender.com' // 3. hardcoded fallback
+}
+```
+
+### Live-apply vs. reload — when to use which
+
+Theme and language changes are pure UI state — flipping them is just a
+React re-render, so there's no reason to reload the page.
+
+The API server setting is different: changing it means *every* cached
+query in the app now points at data from the wrong server. Rather than
+manually invalidating every single query key, a full page reload gets a
+guaranteed-clean slate — worth the extra second for a setting that isn't
+changed often. Match the mechanism to the blast radius of the change,
+not just to what's technically possible.
+
+---
+
+## Quick reference
+
+```
+useQuery({ queryKey, queryFn })     cache a fetch by key
+staleTime                            how long cached data is trusted before refetching
+invalidateQueries({ queryKey })      mark cached data stale, refetch in background
+
+CSS custom property                  a variable in CSS: var(--color-x)
+data-theme attribute                 switch which values those variables resolve to
+element.style.setProperty(name, v)   set a CSS variable from JS, wins over stylesheet
+inline <script> before app JS        apply saved theme before first paint (no flash)
+
+translations[lang][key]              nested dictionary lookup
+dotPath.split('.').reduce(...)       walk a 'nav.home' key into nested object
+value ?? fallback ?? key             graceful fallback chain, never renders undefined
+createContext + useContext           share a value across components without prop-drilling
+
+read priority: override > build default > hardcoded    settings resolution order
+localStorage                         persist a setting across reloads
+live-apply vs. reload                match the mechanism to the blast radius of the change
 ```

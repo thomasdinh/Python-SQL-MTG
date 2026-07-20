@@ -5,6 +5,7 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from typing import List
 
 import uvicorn
@@ -17,13 +18,25 @@ app = FastAPI(
     version="1.0.0"
 )  # ← only ONE of these
 
+# Comma-separated list of allowed origins, e.g. "https://myapp.vercel.app,http://localhost:5173".
+# Falls back to "*" (any origin) so existing deployments keep working unchanged,
+# but you should set ALLOWED_ORIGINS in production once you know the frontend's URL.
+_allowed_origins = os.getenv("ALLOWED_ORIGINS")
+allow_origins = [o.strip() for o in _allowed_origins.split(",")] if _allowed_origins else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Compresses any response over 500 bytes. /matches/detail and
+# /decks/with-stats are fetched on nearly every page now (tier list,
+# progression charts, filters) and only grow as match history accumulates —
+# this is a transparent win with no frontend changes needed.
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 db = database.DatabaseManager()
 
@@ -84,7 +97,50 @@ def update_user(user_id: int, user: schemas.UserCreate):
 def get_all_matches():
     matches = db.select(database.MtgMatch, {})
     return matches  
-   
+
+# NOTE: this must be registered before /matches/{match_id}. FastAPI/Starlette
+# tries routes in registration order, and since {match_id} here has no
+# explicit ":int" converter in the path string, a literal "detail" segment
+# would otherwise match {match_id} first (as the string "detail") and blow
+# up with a 422 when FastAPI tries to coerce it to int, instead of ever
+# reaching this handler.
+@app.get("/matches/detail", response_model=List[schemas.MatchDetailResponse])
+def get_all_matches_detail():
+    """
+    Return every match with its players+deck names already joined in.
+
+    This exists so the frontend can render the Matches page with ONE request
+    instead of fetching /matches/ and then /matches/{id}/detail once per
+    match (an N+1 waterfall that used to make the page get slower as more
+    matches were logged).
+    """
+    matches = db.execute_query("SELECT * FROM MTGMatches ORDER BY match_id DESC")
+    if not matches:
+        return []
+
+    players_query = """
+        SELECT mp.id, mp.match_id, mp.deck_id, mp.placement, mp.won, d.deckname AS deck_name, d.ownerid AS owner_id
+        FROM MatchPlayers mp
+        JOIN Decks d ON d.deckid = mp.deck_id
+        ORDER BY mp.placement
+    """
+    all_players = db.execute_query(players_query)
+
+    players_by_match = {}
+    for p in all_players:
+        players_by_match.setdefault(p["match_id"], []).append(p)
+
+    return [
+        {
+            "match_id": m["match_id"],
+            "date": m["date"],
+            "group_id": m["group_id"],
+            "comment": m["comment"],
+            "players": players_by_match.get(m["match_id"], []),
+        }
+        for m in matches
+    ]
+
 @app.get("/matches/{match_id}", response_model=schemas.MtgMatchesResponse)
 def get_match(match_id: int):
     match = db.select(database.MtgMatch, {"match_id": match_id})
@@ -98,26 +154,17 @@ def get_match_detail(match_id: int):
     match = db.select(database.MtgMatch, {"match_id": match_id})
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    
-    # get all match players for this match
-    match_players = db.select(database.MatchPlayer, {"match_id": match_id})
-    
-    # for each match player, get their deck name
-    players_with_decks = []
-    for mp in match_players:
-        deck = db.select(database.Deck, {"deckid": mp["deck_id"]})
-        deck_name = deck[0]["deckname"] if deck else "Unknown"
-        players_with_decks.append({
-            "id": mp["id"],
-            "deck_id": mp["deck_id"],
-            "deck_name": deck_name,
-            "placement": mp["placement"],
-            "won": mp["won"]
-        })
-    
-    # sort by placement so winner is always first
-    players_with_decks.sort(key=lambda x: x["placement"])
-    
+
+    # get all match players for this match, already joined with deck name
+    query = """
+        SELECT mp.id, mp.match_id, mp.deck_id, mp.placement, mp.won, d.deckname AS deck_name, d.ownerid AS owner_id
+        FROM MatchPlayers mp
+        JOIN Decks d ON d.deckid = mp.deck_id
+        WHERE mp.match_id = :match_id
+        ORDER BY mp.placement
+    """
+    players_with_decks = db.execute_query(query, {"match_id": match_id})
+
     return {
         "match_id": match[0]["match_id"],
         "date": match[0]["date"],
@@ -170,15 +217,8 @@ def delete_match(match_id: int):
     db.delete(database.MtgMatch, {"match_id": match_id})
     return {"message": "Match deleted successfully"}
 
-@app.get("/decks/{deck_id}", response_model=schemas.DeckResponse)
-def get_deck(deck_id: int):
-    deck = db.select(database.Deck, {"deckid": deck_id})
-    if not deck:
-        raise HTTPException(status_code=404, detail="Deck not found")
-    return dict(deck[0])
-
 @app.get("/decks/name/{deckname}", response_model=schemas.DeckResponse)
-def get_deck(deckname: str):
+def get_deck_by_name(deckname: str):
     deck = db.select(database.Deck, {"deckname": deckname})
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
@@ -189,6 +229,45 @@ def get_deck(deckname: str):
 def get_all_decks():
     decks = db.select(database.Deck, {})
     return decks
+
+# NOTE: must be registered before /decks/{deck_id} — see the comment on
+# /matches/detail above for why (same {param}-swallows-literal-segment
+# ordering issue).
+@app.get("/decks/with-stats", response_model=List[schemas.DeckWithStatsResponse])
+def get_decks_with_stats(ownerid: int | None = None):
+    """
+    Return decks together with their match/win counts and the date they were
+    last played, computed with a single SQL join+aggregate.
+
+    Replaces the old frontend pattern of fetching /decks/ and then calling
+    /matches_by_deck/{id} once per deck (N+1 requests -> now always 1).
+    Pass ?ownerid=<id> to scope this to one player's decks (used by the
+    player detail page).
+    """
+    where_clause = "WHERE d.ownerid = :ownerid" if ownerid is not None else ""
+    query = f"""
+        SELECT
+            d.deckid, d.deckname, d.partnername, d.color, d.manavalue,
+            d.ownerid, d.image_url,
+            COUNT(mp.id) AS matches,
+            COALESCE(SUM(mp.won), 0) AS wins,
+            MAX(m.date) AS last_played
+        FROM Decks d
+        LEFT JOIN MatchPlayers mp ON mp.deck_id = d.deckid
+        LEFT JOIN MTGMatches m ON m.match_id = mp.match_id
+        {where_clause}
+        GROUP BY d.deckid
+        ORDER BY d.deckid
+    """
+    params = {"ownerid": ownerid} if ownerid is not None else {}
+    return db.execute_query(query, params)
+
+@app.get("/decks/{deck_id}", response_model=schemas.DeckResponse)
+def get_deck(deck_id: int):
+    deck = db.select(database.Deck, {"deckid": deck_id})
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    return dict(deck[0])
 
 @app.post("/decks/", response_model=schemas.DeckResponse)
 def create_deck(deck: schemas.DeckRequest):
@@ -236,7 +315,7 @@ def delete_deck(deck_id: int):
     return {"message": "Deck deleted successfully"}
 
 @app.delete("/decks/name/{deckname}")
-def delete_deck(deckname: str):
+def delete_deck_by_name(deckname: str):
     deck = db.select(database.Deck, {"deckname": deckname})
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
@@ -256,29 +335,45 @@ def get_match_player(deck_id: int):
         raise HTTPException(status_code=404, detail="Match player not found")
     return mp
 
-@app.get("/matches_by_player/{ownerid}")
+@app.get("/matches_by_deck/{deck_id}/detail", response_model=List[schemas.DeckMatchHistoryEntry])
+def get_match_history_for_deck(deck_id: int):
+    """
+    Return this deck's match-player rows already joined with each match's
+    date/comment, in one query. Replaces the old pattern of fetching
+    /matches_by_deck/{id} and then /matches/{match_id} once per match.
+    """
+    query = """
+        SELECT mp.id, mp.match_id, mp.placement, mp.won, m.date, m.comment
+        FROM MatchPlayers mp
+        JOIN MTGMatches m ON m.match_id = mp.match_id
+        WHERE mp.deck_id = :deck_id
+        ORDER BY m.date DESC
+    """
+    return db.execute_query(query, {"deck_id": deck_id})
+
+@app.get("/matches_by_player/{ownerid}", response_model=List[schemas.MatchPlayersResponse])
 def get_matches_by_player(ownerid: int):
-    ''' Return a list of matches for a given player id.'''
-    # First get all decks for the player
-    decks = db.select(database.Deck, {"ownerid": ownerid})
-    if not decks:
-        raise HTTPException(status_code=404, detail="No decks found for player")
-    
-    deck_ids = [deck['deckid'] for deck in decks]
-    
-    #print(f"Found decks for player {ownerid}: {deck_ids}")
-    # Now get all match players for those decks
-    match_players = []
-    for deck_id in deck_ids:
-        mps = db.select(database.MatchPlayer, {"deck_id": deck_id})
-        match_players.extend(mps)
-    
-    if not match_players:
+    '''
+    Return every match-player row across all of this player's decks.
+
+    Used by the player detail page's charts (win rate by deck, placement
+    distribution), which need per-match granularity, not just aggregate
+    counts. Previously this looped once per deck (N+1 queries); now it's a
+    single JOIN.
+    '''
+    query = """
+        SELECT mp.id, mp.match_id, mp.deck_id, mp.placement, mp.won
+        FROM MatchPlayers mp
+        JOIN Decks d ON d.deckid = mp.deck_id
+        WHERE d.ownerid = :ownerid
+    """
+    rows = db.execute_query(query, {"ownerid": ownerid})
+    if not rows:
         raise HTTPException(status_code=404, detail="No matches found for player's decks")
-    return match_players
+    return rows
 
 @app.get("/matchplayers/{mp_id}", response_model=schemas.MatchPlayersResponse)
-def get_match_player(mp_id: int):
+def get_match_player_by_id(mp_id: int):
     mp = db.select(database.MatchPlayer, {"id": mp_id})
     if not mp:
         raise HTTPException(status_code=404, detail="Match player not found")

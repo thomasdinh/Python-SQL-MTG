@@ -1,43 +1,56 @@
-import  API_BASE  from '../config'
+import { Link } from 'react-router-dom'
+import ColorIdentity from '../components/ColorIdentity'
+import { useTranslation } from '../i18n/context'
 
 function Home() {
+  const { t } = useTranslation()
+
   return (
-    <div className="max-w-3xl mx-auto p-8">
-      <div className="mb-10">
-        <h1 className="text-3xl font-medium text-gray-900 mb-2">
-          MTG Commander Dashboard
+    <div className="max-w-3xl mx-auto p-8 sm:p-12">
+      <div className="mb-12">
+        <div className="flex items-center gap-2 mb-4">
+          <ColorIdentity color="WUBRG" size={18} />
+        </div>
+        <h1 className="font-display text-4xl sm:text-5xl tracking-wide text-parchment mb-4 leading-tight">
+          {t('home.title')}
         </h1>
-        <p className="text-gray-500 max-w-lg">
-          Track your Commander games, analyse deck performance, and see
-          who dominates your playgroup.
+        <p className="text-parchment-dim max-w-lg leading-relaxed">
+          {t('home.tagline')}
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-        <h2 className="text-sm font-medium text-gray-900 mb-1">About</h2>
-        <p className="text-sm text-gray-500 leading-relaxed">
-          Built with React, Tailwind CSS, and a FastAPI + MySQL backend.
-          Log your Commander matches, track win rates per deck, and visualise
-          your playgroup's history over time.
-        </p>
+      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+        <Link
+          to="/players"
+          className="bg-surface border border-hairline rounded-lg p-5 hover:border-brass-dim transition-colors"
+        >
+          <p className="text-xs text-parchment-faint uppercase tracking-wide mb-2">{t('home.step1')}</p>
+          <h2 className="text-sm font-medium text-parchment mb-1">{t('home.step1Heading')}</h2>
+          <p className="text-xs text-parchment-dim leading-relaxed">{t('home.step1Body')}</p>
+        </Link>
+        <Link
+          to="/decks"
+          className="bg-surface border border-hairline rounded-lg p-5 hover:border-brass-dim transition-colors"
+        >
+          <p className="text-xs text-parchment-faint uppercase tracking-wide mb-2">{t('home.step2')}</p>
+          <h2 className="text-sm font-medium text-parchment mb-1">{t('home.step2Heading')}</h2>
+          <p className="text-xs text-parchment-dim leading-relaxed">{t('home.step2Body')}</p>
+        </Link>
+        <Link
+          to="/matches"
+          className="bg-surface border border-hairline rounded-lg p-5 hover:border-brass-dim transition-colors"
+        >
+          <p className="text-xs text-parchment-faint uppercase tracking-wide mb-2">{t('home.step3')}</p>
+          <h2 className="text-sm font-medium text-parchment mb-1">{t('home.step3Heading')}</h2>
+          <p className="text-xs text-parchment-dim leading-relaxed">{t('home.step3Body')}</p>
+        </Link>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-sm font-medium text-gray-900 mb-4">Getting started</h2>
-        <ol className="flex flex-col gap-2">
-          {[
-            'Go to Players to see all registered players',
-            'Click a player to view their decks and stats',
-            'Add new decks and log matches from the player page',
-          ].map((step, i) => (
-            <li key={i} className="flex gap-3 text-sm text-gray-500">
-              <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-xs flex items-center justify-center flex-shrink-0 font-medium">
-                {i + 1}
-              </span>
-              {step}
-            </li>
-          ))}
-        </ol>
+      <div className="bg-ink-2 border border-hairline rounded-lg p-5">
+        <h2 className="text-sm font-medium text-parchment mb-1">{t('home.aboutTitle')}</h2>
+        <p className="text-sm text-parchment-dim leading-relaxed">
+          {t('home.aboutBody')}
+        </p>
       </div>
     </div>
   )

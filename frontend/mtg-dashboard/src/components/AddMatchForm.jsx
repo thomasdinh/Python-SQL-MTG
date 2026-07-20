@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import  API_BASE  from '../config'
+import { useDecks } from '../hooks/useDecks'
+import { useTranslation } from '../i18n/context'
 
 function AddMatchForm({ onMatchAdded }) {
-  const [allDecks, setAllDecks] = useState([])
+  const { t } = useTranslation()
+  const { data: allDecks = [], error: decksError } = useDecks()
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [comment, setComment] = useState('')
   const [participants, setParticipants] = useState([
@@ -12,14 +15,6 @@ function AddMatchForm({ onMatchAdded }) {
   ])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
-
-  // fetch all decks for the dropdowns
-  useEffect(() => {
-    fetch(`${API_BASE}/decks/`)
-      .then((res) => res.json())
-      .then((data) => setAllDecks(data))
-      .catch(() => setError('Could not load decks'))
-  }, [])
 
   function addParticipant() {
     setParticipants([
@@ -42,14 +37,14 @@ function AddMatchForm({ onMatchAdded }) {
   }
 
   function validate() {
-    if (!date) return 'Date is required'
-    if (participants.length < 2) return 'A match needs at least 2 participants'
+    if (!date) return t('forms.dateRequired')
+    if (participants.length < 2) return t('forms.minParticipants')
     for (const p of participants) {
-      if (!p.deckId) return 'All participants need a deck selected'
+      if (!p.deckId) return t('forms.allNeedDeck')
     }
     const deckIds = participants.map((p) => p.deckId)
     const unique = new Set(deckIds)
-    if (unique.size !== deckIds.length) return 'Each deck can only appear once'
+    if (unique.size !== deckIds.length) return t('forms.deckOnce')
     return null
   }
 
@@ -119,52 +114,52 @@ function AddMatchForm({ onMatchAdded }) {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
-      <h2 className="text-sm font-medium text-gray-900 mb-4">Log a match</h2>
+    <div className="bg-surface border border-hairline rounded-lg p-5 mb-6">
+      <h2 className="text-sm font-medium text-parchment mb-4">{t('matches.logAMatch')}</h2>
 
       <div className="flex flex-col gap-4">
 
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Date</label>
+            <label className="text-xs text-parchment-dim">{t('matches.date')}</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400"
+              className="bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Comment (optional)</label>
+            <label className="text-xs text-parchment-dim">{t('matches.commentOptional')}</label>
             <input
               type="text"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="e.g. Won via combo turn 7"
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400"
+              className="bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass"
             />
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs text-gray-500">Participants</label>
-            <span className="text-xs text-gray-400">
-              Placement 1 = winner
+            <label className="text-xs text-parchment-dim">{t('matches.participants')}</label>
+            <span className="text-xs text-parchment-faint">
+              {t('matches.placementWinnerHint')}
             </span>
           </div>
 
           {participants.map((p, index) => (
             <div key={index} className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 w-5 flex-shrink-0">
+              <span className="text-xs text-parchment-faint w-5 flex-shrink-0 font-mono">
                 #{p.placement}
               </span>
               <select
                 value={p.deckId}
                 onChange={(e) => updateParticipant(index, 'deckId', e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400 bg-white"
+                className="flex-1 bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass"
               >
-                <option value="">Select deck</option>
+                <option value="">{t('matches.selectDeck')}</option>
                 {allDecks.map((deck) => (
                   <option key={deck.deckid} value={deck.deckid}>
                     {deck.deckname}
@@ -177,12 +172,12 @@ function AddMatchForm({ onMatchAdded }) {
                 max={participants.length}
                 value={p.placement}
                 onChange={(e) => updateParticipant(index, 'placement', parseInt(e.target.value))}
-                className="w-16 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400 text-center"
+                className="w-16 bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass text-center"
               />
               {participants.length > 2 && (
                 <button
                   onClick={() => removeParticipant(index)}
-                  className="text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                  className="text-parchment-faint hover:text-loss transition-colors flex-shrink-0"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -192,23 +187,23 @@ function AddMatchForm({ onMatchAdded }) {
 
           <button
             onClick={addParticipant}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 transition-colors mt-1 w-fit"
+            className="flex items-center gap-1.5 text-xs text-parchment-dim hover:text-parchment transition-colors mt-1 w-fit"
           >
             <Plus size={13} />
-            Add participant
+            {t('matches.addParticipant')}
           </button>
         </div>
 
-        {error && (
-          <p className="text-xs text-red-500">{error}</p>
+        {(error || decksError) && (
+          <p className="text-xs text-loss">{error || t('matches.couldNotLoadDecks')}</p>
         )}
 
         <button
           onClick={handleSubmit}
           disabled={submitting}
-          className="bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed w-fit"
+          className="bg-brass text-ink rounded-md px-4 py-2 text-sm font-medium hover:bg-brass-dim disabled:opacity-50 disabled:cursor-not-allowed w-fit"
         >
-          {submitting ? 'Saving...' : 'Log match'}
+          {submitting ? t('matches.saving') : t('matches.logMatch')}
         </button>
 
       </div>

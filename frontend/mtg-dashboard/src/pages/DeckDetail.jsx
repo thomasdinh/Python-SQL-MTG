@@ -1,75 +1,67 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Layers } from 'lucide-react'
 import MatchHistory from '../components/MatchHistory'
 import PlacementChart from '../components/PlacementChart'
-
-const API_BASE = 'http://localhost:8000'
+import WinRateProgressionChart from '../components/WinRateProgressionChart'
+import ColorIdentity from '../components/ColorIdentity'
+import StatCard from '../components/StatCard'
+import { useDeck, useDeckMatchHistory, useDecks } from '../hooks/useDecks'
+import { useMatchesDetailed } from '../hooks/useMatches'
+import { usePlayers } from '../hooks/useUsers'
+import { computeStreaks } from '../utils/streaks'
+import { useTranslation } from '../i18n/context'
 
 function DeckDetail() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
-
-  const [deck, setDeck] = useState(null)
-  const [deckLoading, setDeckLoading] = useState(true)
-  const [matchPlayers, setMatchPlayers] = useState([])
   const [imgError, setImgError] = useState(false)
 
-  // fetch the deck
-  useEffect(() => {
-    fetch(`${API_BASE}/decks/${id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Deck not found')
-        return res.json()
-      })
-      .then((data) => {
-        setDeck(data)
-        setDeckLoading(false)
-      })
-      .catch(() => navigate('/decks'))
-  }, [id])
+  const { data: deck, isLoading: deckLoading, error: deckError } = useDeck(id)
+  const { data: matchPlayers = [] } = useDeckMatchHistory(id)
+  const { data: allMatches = [] } = useMatchesDetailed()
+  const { data: decks = [] } = useDecks()
+  const { data: players = [] } = usePlayers()
 
-  // fetch match players for this deck
-  useEffect(() => {
-    fetch(`${API_BASE}/matches_by_deck/${id}`)
-      .then((res) => {
-        if (res.status === 404) return []
-        if (!res.ok) throw new Error('Failed to load matches')
-        return res.json()
-      })
-      .then((data) => setMatchPlayers(data))
-      .catch(() => setMatchPlayers([]))
-  }, [id])
+  if (deckError) {
+    navigate('/decks')
+    return null
+  }
 
-  // derived stats
+  if (deckLoading) return <p className="p-8 text-sm text-parchment-faint">{t('common.loadingDeck')}</p>
+  if (!deck) return null
+
+  const showImage = deck.image_url && !imgError
+
   const totalMatches = matchPlayers.length
   const wins = matchPlayers.filter((mp) => mp.won === 1).length
   const losses = totalMatches - wins
   const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0
-
   const avgPlacement = totalMatches > 0
     ? (matchPlayers.reduce((sum, mp) => sum + mp.placement, 0) / totalMatches).toFixed(1)
     : '—'
-
-  if (deckLoading) return <p className="p-8 text-sm text-gray-400">Loading deck...</p>
-  if (!deck) return null
-
-  const showImage = deck.image_url && !imgError
+  const streaks = computeStreaks(
+    matchPlayers
+      .slice()
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      .map((mp) => mp.won)
+  )
 
   return (
     <div className="max-w-3xl mx-auto p-8">
 
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-700 mb-6 transition-colors"
+        className="flex items-center gap-2 text-sm text-parchment-faint hover:text-parchment mb-6 transition-colors"
       >
         <ArrowLeft size={14} />
-        Back
+        {t('common.back')}
       </button>
 
       {/* deck header */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 flex gap-5 items-center mb-6">
-        <div className="w-20 h-20 rounded-xl bg-purple-100 overflow-hidden">
+      <div className="bg-surface border border-hairline rounded-lg p-6 flex gap-5 items-center mb-6">
+        <div className="w-20 h-20 rounded-lg bg-surface-raised border border-hairline overflow-hidden flex items-center justify-center flex-shrink-0">
           {showImage ? (
             <img
               src={deck.image_url}
@@ -78,48 +70,39 @@ function DeckDetail() {
               onError={() => setImgError(true)}
             />
           ) : (
-            <Layers size={32} className="text-purple-400" />
+            <Layers size={32} className="text-parchment-faint" />
           )}
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl font-medium text-gray-900 truncate">
+          <h1 className="font-display text-2xl tracking-wide text-parchment truncate">
             {deck.deckname}
             {deck.partnername && (
-              <span className="text-gray-400"> / {deck.partnername}</span>
+              <span className="text-parchment-faint font-body text-lg"> / {deck.partnername}</span>
             )}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {deck.color ?? 'Colorless'} · MV {deck.manavalue ?? '—'}
-          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <ColorIdentity color={deck.color} size={16} />
+            <span className="text-sm text-parchment-dim">· MV {deck.manavalue ?? '—'}</span>
+          </div>
         </div>
       </div>
 
       {/* stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Matches</p>
-          <p className="text-2xl font-medium text-gray-900">{totalMatches}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Wins</p>
-          <p className="text-2xl font-medium text-green-600">{wins}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Losses</p>
-          <p className="text-2xl font-medium text-red-500">{losses}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-400 mb-1">Win rate</p>
-          <p className={`text-2xl font-medium ${winRate >= 50 ? 'text-green-600' : 'text-red-500'}`}>
-            {totalMatches > 0 ? `${winRate}%` : '—'}
-          </p>
-        </div>
-      </div>
-
-      {/* avg placement */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
-        <p className="text-xs text-gray-400 mb-1">Average placement</p>
-        <p className="text-2xl font-medium text-gray-900">{avgPlacement}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <StatCard label={t('stat.matches')} value={totalMatches} />
+        <StatCard label={t('stat.wins')} value={wins} tone="win" />
+        <StatCard label={t('stat.losses')} value={losses} tone="loss" />
+        <StatCard
+          label={t('stat.winRate')}
+          value={totalMatches > 0 ? `${winRate}%` : '—'}
+          tone={totalMatches > 0 ? (winRate >= 50 ? 'win' : 'loss') : undefined}
+        />
+        <StatCard
+          label={t('stat.streak')}
+          value={streaks.current > 0 ? `${streaks.currentType === 'win' ? 'W' : 'L'}${streaks.current}` : '—'}
+          tone={streaks.currentType === 'win' ? 'win' : streaks.currentType === 'loss' ? 'loss' : undefined}
+        />
+        <StatCard label={t('stat.avgPlacement')} value={avgPlacement} />
       </div>
 
       {/* placement chart */}
@@ -129,9 +112,22 @@ function DeckDetail() {
         </div>
       )}
 
+      {/* win rate progression */}
+      {totalMatches > 0 && (
+        <div className="mb-6">
+          <WinRateProgressionChart
+            matches={allMatches}
+            players={players}
+            decks={decks}
+            subjectType="deck"
+            subjectId={deck.deckid}
+          />
+        </div>
+      )}
+
       {/* match history */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="text-sm font-medium text-gray-900 mb-3">Match history</h2>
+      <div className="bg-surface border border-hairline rounded-lg p-5">
+        <h2 className="text-sm font-medium text-parchment mb-3">Match history</h2>
         <MatchHistory deckId={parseInt(id)} />
       </div>
 

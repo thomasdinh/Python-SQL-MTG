@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text, Column, Integer, String, Date
+from sqlalchemy import create_engine, text, Column, Integer, String, Date, ForeignKey, Index
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 import pydoc
@@ -27,8 +27,15 @@ def get_engine():
     try:
         engine = create_engine(
             f'mysql+pymysql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}',
-            pool_size=2,          # keep 2 connections open permanently
-            max_overflow=2,       # allow 2 extra in bursts → 4 total, safely under the limit
+            # Pages now fire several requests in parallel (e.g. the deck detail
+            # page loads the deck, its match history, the full match list, the
+            # full deck list, and the player list all at once for its filter
+            # panels) — 2+2=4 total connections was tight enough to queue
+            # requests under normal use. 5+5=10 gives more headroom.
+            # If your DB plan has a low max_connections limit (common on free
+            # tiers), check that before raising this further.
+            pool_size=5,           # keep 5 connections open permanently
+            max_overflow=5,        # allow 5 extra in bursts → 10 total
             pool_timeout=30,      # wait up to 30s for a connection before erroring
             pool_recycle=1800,    # recycle connections every 30min to avoid stale ones
             pool_pre_ping=True,   # reconnect if a connection drops
@@ -176,22 +183,29 @@ class DatabaseManager:
 
 
 class Deck(Base):
-    """Example model for decks."""
+    """A Commander deck owned by a player."""
     __tablename__ = 'Decks'
+    __table_args__ = (
+        Index('idx_decks_ownerid', 'ownerid'),
+    )
 
     deckid        = Column(Integer, primary_key=True, autoincrement=True)
     deckname      = Column(String(32), nullable=False)
     partnername    = Column(String(32))
     color   = Column(String(16))
     manavalue = Column(Integer)
-    ownerid = Column(Integer)
+    # ForeignKey + ondelete here mirrors migrations/003_add_foreign_keys.sql —
+    # this only takes effect for brand-new databases created via
+    # Base.metadata.create_all(); an existing database needs that migration
+    # run directly, since create_all() never alters existing tables.
+    ownerid = Column(Integer, ForeignKey('Users.userid', ondelete='RESTRICT', onupdate='CASCADE'))
     image_url = Column(String(255))
 
     def __repr__(self):
         return f"<Deck(deckid={self.deckid}, deckname='{self.deckname}', partnername='{self.partnername}', color='{self.color}', manavalue={self.manavalue}, ownerid={self.ownerid}, image_url='{self.image_url}')>"
 
 class MtgMatch(Base):
-    """Example model for matches.
+    """A single Commander game session.
     parameters:
     - match_id: unique identifier for each match (primary key)
         - Decklist: name of the deck used in the match (string, not null)
@@ -200,6 +214,10 @@ class MtgMatch(Base):
         - group_id: identifier for the group or tournament (integer)
         - comment: optional notes about the match (string)"""
     __tablename__ = 'MTGMatches'
+    __table_args__ = (
+        Index('idx_mtgmatches_date', 'date'),
+        Index('idx_mtgmatches_group_id', 'group_id'),
+    )
 
     match_id        = Column(Integer, primary_key=True, autoincrement=True)
     Decklist      = Column(String(256), nullable=False)
@@ -229,12 +247,16 @@ class User(Base):
         return f"<User(userid={self.userid}, firstname='{self.firstname}', lastname='{self.lastname}')>"
     
 class MatchPlayer(Base):
-    """Example model for match players."""
+    """One deck's participation in one match — the join table between Decks and MTGMatches."""
     __tablename__ = 'MatchPlayers'
+    __table_args__ = (
+        Index('idx_matchplayers_deck_won', 'deck_id', 'won'),
+        Index('idx_matchplayers_match_id', 'match_id'),
+    )
 
     id        = Column(Integer, primary_key=True, autoincrement=True)
-    match_id  = Column(Integer, nullable=False)
-    deck_id = Column(Integer, nullable=False)
+    match_id  = Column(Integer, ForeignKey('MTGMatches.match_id', ondelete='CASCADE', onupdate='CASCADE'), nullable=False)
+    deck_id = Column(Integer, ForeignKey('Decks.deckid', ondelete='RESTRICT', onupdate='CASCADE'), nullable=False)
     placement = Column(Integer, nullable=False)
     won = Column(Integer, nullable=False)  # 1 for win, 0 for loss
 

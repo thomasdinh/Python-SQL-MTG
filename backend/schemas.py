@@ -90,3 +90,50 @@ class MatchPlayersRequest(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Aggregate / batch response models ──────────────────────────────────────
+# These back endpoints that join data server-side so the frontend can render
+# a page with ONE request instead of firing one request per row (N+1).
+
+class DeckWithStatsResponse(BaseModel):
+    """A deck plus its aggregated match record, computed in a single SQL query."""
+    deckid: int
+    deckname: str
+    partnername: Optional[str] = None
+    color: Optional[str] = None
+    manavalue: Optional[int] = None
+    ownerid: int
+    image_url: Optional[str] = None
+    matches: int
+    wins: int
+    last_played: Optional[str] = None
+
+
+class MatchDetailPlayer(BaseModel):
+    id: int
+    deck_id: int
+    deck_name: str
+    owner_id: int
+    placement: int
+    won: int
+
+
+class MatchDetailResponse(BaseModel):
+    match_id: int
+    date: str
+    group_id: Optional[int] = None
+    comment: Optional[str] = None
+    players: list[MatchDetailPlayer]
+
+
+class DeckMatchHistoryEntry(BaseModel):
+    """One row of a deck's match history: the match-player result joined with
+    the match's own date/comment, so the frontend doesn't need a second
+    fetch per match to display it."""
+    id: int
+    match_id: int
+    placement: int
+    won: int
+    date: str
+    comment: Optional[str] = None

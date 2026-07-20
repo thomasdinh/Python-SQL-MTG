@@ -1,128 +1,108 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import DeckList from '../components/DeckList'
 import AddDeckForm from '../components/AddDeckForm'
 import AddButton from '../components/AddButton'
-import  API_BASE  from '../config'
+import StatCard from '../components/StatCard'
+import DeckFilters from '../components/DeckFilters'
+import { applyDeckFilters } from '../utils/deckFilters'
+import { usePlayers } from '../hooks/useUsers'
+import { useDecksWithStats, useInvalidateDecks } from '../hooks/useDecks'
+import { useMatchesList } from '../hooks/useMatches'
+import { useTranslation } from '../i18n/context'
 
 function Decks () {
-  const [decks, setDecks] = useState([])
-  const [decksLoading, setDecksLoading] = useState(true)
-  const [decksError, setDecksError] = useState(null)
-  const [allMatchPlayers, setAllMatchPlayers] = useState([])
-  const [players, setPlayers] = useState([])
+  const { t } = useTranslation()
+  const { data: decks = [], isLoading: decksLoading, error: decksError } = useDecksWithStats()
+  const { data: players = [] } = usePlayers()
+  const { data: matches = [] } = useMatchesList()
+  const invalidateDecks = useInvalidateDecks()
+
   const [selectedPlayerId, setSelectedPlayerId] = useState(null)
-  const [matches, setMatches] = useState([])
   const [showAddDeckForm, setShowAddDeckForm] = useState(false)
-  // fetch all players for the selector
-  useEffect(() => {
-    fetch(`${API_BASE}/users/`)
-      .then(res => res.json())
-      .then(data => {
-        setPlayers(data)
-        if (data.length > 0) setSelectedPlayerId(data[0].userid)
-      })
-      .catch(err => console.error('Could not load players:', err))
-  }, [])
 
-  // fetch all matches for the stats  useEffect(() => {
-  useEffect(() => {
-    fetch(`${API_BASE}/matches/`)
-      .then(res => res.json())
-      .then(data => setMatches(data))
-      .catch(err => console.error('Could not load matches:', err))
-  }, [])
+  // filter/sort state for the deck list (separate from the "add deck" form's
+  // player selector below)
+  const [filterOwnerId, setFilterOwnerId] = useState(null)
+  const [filterColors, setFilterColors] = useState([])
+  const [sort, setSort] = useState('name')
 
-  // fetch all decks
-  useEffect(() => {
-    setDecksLoading(true)
-    setDecksError(null)
-    setDecks([])
-    setAllMatchPlayers([])
+  const visibleDecks = useMemo(
+    () => applyDeckFilters(decks, { ownerId: filterOwnerId, colors: filterColors, sort }),
+    [decks, filterOwnerId, filterColors, sort]
+  )
 
-    fetch(`${API_BASE}/decks/`)
-      .then(res => {
-        if (res.status === 404) return []
-        if (!res.ok) throw new Error('Failed to load decks')
-        return res.json()
-      })
-      .then(deckData => {
-        setDecks(deckData)
-        setDecksLoading(false)
-        return Promise.all(
-          deckData.map(deck =>
-            fetch(`${API_BASE}/matches_by_deck/${deck.deckid}`)
-              .then(res => (res.status === 404 ? [] : res.json()))
-              .catch(() => [])
-          )
-        )
-      })
-      .then(results => {
-        setAllMatchPlayers(results.flat())
-      })
-      .catch(err => {
-        setDecksError(err.message)
-        setDecksLoading(false)
-      })
-  }, [])
-
-  function handleDeckAdded (newDeck) {
-    setDecks([...decks, newDeck])
+  function toggleColor (c) {
+    setFilterColors((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]))
   }
 
-  function handleDeckDeleted (deletedId) {
-    setDecks(decks.filter(d => d.deckid !== deletedId))
-    setAllMatchPlayers(allMatchPlayers.filter(mp => mp.deck_id !== deletedId))
+  function clearFilters () {
+    setFilterOwnerId(null)
+    setFilterColors([])
   }
 
-  function handleDeckUpdated(updatedDeck) {
-  setDecks(decks.map((d) =>
-    d.deckid === updatedDeck.deckid ? updatedDeck : d
-  ))
-}
+  // default the "add deck" form's player selector to the first player once
+  // loaded, without needing a setState-in-effect round trip
+  const effectiveSelectedPlayerId = selectedPlayerId ?? players[0]?.userid ?? null
 
-  const totalMatches = allMatchPlayers.length
-  const totalWins = allMatchPlayers.filter(mp => mp.won === 1).length
-  const overallWinRate =
-    totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0
+  function handleDeckAdded () {
+    invalidateDecks()
+  }
+
+  function handleDeckDeleted () {
+    invalidateDecks()
+  }
+
+  function handleDeckUpdated () {
+    invalidateDecks()
+  }
 
   return (
-    <div className='p-8 '>
-      <h1 className='text-2xl font-medium text-gray-900 mb-6'>Decks</h1>
+    <div className='p-8'>
+      <h1 className="font-display text-2xl tracking-wide text-parchment mb-6">{t('decks.title')}</h1>
 
       <div className='grid grid-cols-2 gap-4 mb-6'>
-        <div className='bg-white border border-gray-200 rounded-xl p-4'>
-          <p className='text-xs text-gray-400 mb-1'>Decks</p>
-          <p className='text-2xl font-medium text-gray-900'>{decks.length}</p>
-        </div>
-        <div className='bg-white border border-gray-200 rounded-xl p-4'>
-          <p className='text-xs text-gray-400 mb-1'>Matches</p>
-          <p className='text-2xl font-medium text-gray-900'>
-            {matches ? matches.length : 0}
-          </p>
-        </div>
+        <StatCard label={t('stat.decks')} value={decks.length} />
+        <StatCard label={t('stat.matches')} value={matches ? matches.length : 0} />
       </div>
 
+      <DeckFilters
+        players={players}
+        ownerId={filterOwnerId}
+        onOwnerChange={setFilterOwnerId}
+        colors={filterColors}
+        onColorsToggle={toggleColor}
+        sort={sort}
+        onSortChange={setSort}
+        onClear={clearFilters}
+      />
+
+      {!decksLoading && !decksError && (
+        <p className='text-xs text-parchment-faint mb-3'>
+          {visibleDecks.length} of {decks.length} decks
+        </p>
+      )}
+
       <DeckList
-        decks={decks}
+        decks={visibleDecks}
         loading={decksLoading}
-        error={decksError}
+        error={decksError ? decksError.message : null}
         onDeckDeleted={handleDeckDeleted}
         onDeckUpdated={handleDeckUpdated}
       />
       {!showAddDeckForm && (
-        <AddButton onClick={() => setShowAddDeckForm(!showAddDeckForm)} />
+        <AddButton onClick={() => setShowAddDeckForm(!showAddDeckForm)} hoverText={t('decks.addDeck')} />
       )}
       {showAddDeckForm && (
         <div>
-          <div className='mt-8 bg-white border border-gray-200 rounded-xl p-5'>
+          <div className='mt-4 bg-surface border border-hairline rounded-lg p-5'>
             <div className='flex flex-col gap-1 mb-4'>
-              <label className='text-xs text-gray-500'>
-                Select a Player to add a deck
+              <label className='text-xs text-parchment-dim'>
+                {t('decks.selectPlayer')}
               </label>
               <select
-                value={selectedPlayerId ?? ''}
+                value={effectiveSelectedPlayerId ?? ''}
                 onChange={e => setSelectedPlayerId(parseInt(e.target.value))}
-                className='border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 outline-none focus:border-purple-400 bg-white'
+                className='bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass'
               >
                 <option value='' disabled>
                   Select a player
@@ -135,9 +115,9 @@ function Decks () {
               </select>
             </div>
 
-            {selectedPlayerId && (
+            {effectiveSelectedPlayerId && (
               <AddDeckForm
-                playerId={selectedPlayerId}
+                playerId={effectiveSelectedPlayerId}
                 className='mt-6'
                 onDeckAdded={handleDeckAdded}
                 onClickClose={() => setShowAddDeckForm(false)}

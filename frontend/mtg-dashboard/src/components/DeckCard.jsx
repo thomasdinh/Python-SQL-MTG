@@ -10,10 +10,12 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import MatchHistory from './MatchHistory'
-import PlayerSelector from './PlayerSelector'
+import ColorIdentity from './ColorIdentity'
 import  API_BASE  from '../config'
+import { useTranslation } from '../i18n/context'
 
 function DeckCard ({ deck, onDeckDeleted, onDeckUpdated }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [deleting, setDeleting] = useState(false)
@@ -33,6 +35,8 @@ function DeckCard ({ deck, onDeckDeleted, onDeckUpdated }) {
   const [editError, setEditError] = useState(null)
 
   const showImage = deck.image_url && !imgError
+  const hasStats = deck.matches !== undefined
+  const winRate = hasStats && deck.matches > 0 ? Math.round((deck.wins / deck.matches) * 100) : null
 
   function handleDelete () {
     if (!confirm(`Delete "${deck.deckname}"?`)) return
@@ -62,7 +66,7 @@ function DeckCard ({ deck, onDeckDeleted, onDeckUpdated }) {
 
   function handleSave () {
     if (!deckname.trim()) {
-      setEditError('Deck name is required')
+      setEditError(t('forms.deckNameRequired'))
       return
     }
 
@@ -96,85 +100,88 @@ function DeckCard ({ deck, onDeckDeleted, onDeckUpdated }) {
       })
   }
 
+  const inputClass = 'bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass'
+
   // edit mode
   if (editing) {
     return (
-      <div className='bg-white border border-purple-200 rounded-xl p-4'>
+      <div className='bg-surface border border-brass-dim rounded-lg p-4'>
         <div className='flex flex-col gap-3'>
           <div className='grid grid-cols-2 gap-3'>
             <div className='flex flex-col gap-1'>
-              <label className='text-xs text-gray-500'>Owner ID</label>
+              <label className='text-xs text-parchment-dim'>{t('forms.ownerId')}</label>
               <input
                 type='number'
                 value={ownerid}
                 onChange={e => setOwnerId(e.target.value)}
-                className='border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400'
+                className={inputClass}
               />
             </div>
             <div className='flex flex-col gap-1'>
-              <label className='text-xs text-gray-500'>Commander name</label>
+              <label className='text-xs text-parchment-dim'>{t('forms.commanderName')}</label>
               <input
                 value={deckname}
                 onChange={e => setDeckname(e.target.value)}
-                className='border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400'
+                className={inputClass}
               />
             </div>
             <div className='flex flex-col gap-1'>
-              <label className='text-xs text-gray-500'>
-                Partner (optional)
+              <label className='text-xs text-parchment-dim'>
+                {t('forms.partnerOptional')}
               </label>
               <input
                 value={partnername}
                 onChange={e => setPartnername(e.target.value)}
-                className='border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400'
+                className={inputClass}
               />
             </div>
             <div className='flex flex-col gap-1'>
-              <label className='text-xs text-gray-500'>Color identity</label>
+              <label className='text-xs text-parchment-dim'>{t('forms.colorIdentity')}</label>
               <input
                 value={color}
                 onChange={e => setColor(e.target.value)}
-                className='border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400'
+                placeholder='e.g. WUBG'
+                className={inputClass}
               />
             </div>
             <div className='flex flex-col gap-1'>
-              <label className='text-xs text-gray-500'>Commander MV</label>
+              <label className='text-xs text-parchment-dim'>{t('forms.commanderMv')}</label>
               <input
                 type='number'
                 value={manavalue}
                 onChange={e => setManavalue(e.target.value)}
-                className='border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400'
+                className={inputClass}
               />
             </div>
             <div className='flex flex-col gap-1 col-span-2'>
-              <label className='text-xs text-gray-500'>
-                Image URL (optional)
+              <label className='text-xs text-parchment-dim'>
+                {t('forms.imageUrlOptional')}
               </label>
               <input
                 value={imageUrl}
                 onChange={e => setImageUrl(e.target.value)}
-                className='border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-400'
+                className={inputClass}
               />
             </div>
           </div>
 
-          {editError && <p className='text-xs text-red-500'>{editError}</p>}
+          {editError && <p className='text-xs text-loss'>{editError}</p>}
 
           <div className='flex gap-2'>
             <button
               onClick={handleSave}
               disabled={saving}
-              className='flex items-center gap-1.5 bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-purple-700 disabled:opacity-50'
+              className='flex items-center gap-1.5 bg-brass text-ink rounded-md px-4 py-2 text-sm font-medium hover:bg-brass-dim disabled:opacity-50'
             >
               <Check size={13} />
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? t('forms.saving') : t('common.save')}
             </button>
             <button
               onClick={handleCancelEdit}
-              className='flex items-center gap-1.5 border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50'
+              className='flex items-center gap-1.5 border border-hairline rounded-md px-4 py-2 text-sm text-parchment-dim hover:bg-surface-raised'
             >
               <X size={13} />
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -184,9 +191,9 @@ function DeckCard ({ deck, onDeckDeleted, onDeckUpdated }) {
 
   // display mode
   return (
-    <div className='bg-white border border-gray-200 rounded-xl p-4'>
+    <div className='bg-surface border border-hairline rounded-lg p-4'>
       <div className='flex gap-4 items-center'>
-        <div className='bg-purple-100 rounded-lg w-14 h-14 flex items-center justify-center flex-shrink-0 overflow-hidden'>
+        <div className='bg-surface-raised rounded-md w-14 h-14 flex items-center justify-center flex-shrink-0 overflow-hidden border border-hairline'>
           {showImage ? (
             <img
               src={deck.image_url}
@@ -195,40 +202,46 @@ function DeckCard ({ deck, onDeckDeleted, onDeckUpdated }) {
               onError={() => setImgError(true)}
             />
           ) : (
-            <Layers size={24} className='text-purple-400' />
+            <Layers size={22} className='text-parchment-faint' />
           )}
         </div>
         <div className='flex-1 min-w-0'>
           <h2
             onClick={() => navigate(`/decks/${deck.deckid}`)}
-            className='text-base font-medium text-gray-900 truncate cursor-pointer hover:text-purple-600 transition-colors'
+            className='text-base font-medium text-parchment truncate cursor-pointer hover:text-brass transition-colors'
           >
             {deck.deckname}
             {deck.partnername && (
-              <span className='text-gray-400'> / {deck.partnername}</span>
+              <span className='text-parchment-faint'> / {deck.partnername}</span>
             )}
           </h2>
-          <p className='text-sm text-gray-500 mt-0.5'>
-            {deck.color ?? 'Colorless'} · MV {deck.manavalue ?? '—'}
-          </p>
+          <div className='flex items-center gap-2 mt-1'>
+            <ColorIdentity color={deck.color} size={14} />
+            <span className='text-xs text-parchment-faint'>· MV {deck.manavalue ?? '—'}</span>
+            {winRate !== null && (
+              <span className='text-xs font-mono text-parchment-dim'>
+                · {deck.wins}/{deck.matches} ({winRate}%)
+              </span>
+            )}
+          </div>
         </div>
         <div className='flex items-center gap-2 flex-shrink-0'>
           <button
             onClick={() => setEditing(true)}
-            className='text-gray-300 hover:text-purple-500 transition-colors'
+            className='text-parchment-faint hover:text-brass transition-colors'
           >
             <Pencil size={15} />
           </button>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className='text-gray-300 hover:text-gray-500 transition-colors'
+            className='text-parchment-faint hover:text-parchment transition-colors'
           >
             {showHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className='text-gray-300 hover:text-red-500 disabled:opacity-50 transition-colors'
+            className='text-parchment-faint hover:text-loss disabled:opacity-50 transition-colors'
           >
             <Trash2 size={16} />
           </button>

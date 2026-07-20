@@ -1,84 +1,70 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import DeckList from '../components/DeckList'
 import AddDeckForm from '../components/AddDeckForm'
 import WinRateChart from '../components/WinRateChart'
 import PlacementChart from '../components/PlacementChart'
+import WinRateProgressionChart from '../components/WinRateProgressionChart'
+import HeadToHead from '../components/HeadToHead'
 import AddButton from '../components/AddButton'
-import  API_BASE from '../config'
+import StatCard from '../components/StatCard'
+import { usePlayer, usePlayers } from '../hooks/useUsers'
+import { useDecksWithStats, useDecks, useInvalidateDecks } from '../hooks/useDecks'
+import { useMatchesByPlayer, useMatchesDetailed, useInvalidateMatches } from '../hooks/useMatches'
+import { computeStreaks } from '../utils/streaks'
+import { useTranslation } from '../i18n/context'
 
 function PlayerDetail () {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const [player, setPlayer] = useState(null)
-  const [decks, setDecks] = useState([])
-  const [decksLoading, setDecksLoading] = useState(true)
-  const [decksError, setDecksError] = useState(null)
-  const [allMatchPlayers, setAllMatchPlayers] = useState([])
+  const { data: player, error: playerError } = usePlayer(id)
+  const {
+    data: decks = [],
+    isLoading: decksLoading,
+    error: decksError
+  } = useDecksWithStats(id)
+  const { data: matchPlayers = [] } = useMatchesByPlayer(id)
+  const { data: allMatches = [] } = useMatchesDetailed()
+  const { data: allDecks = [] } = useDecks()
+  const { data: allPlayers = [] } = usePlayers()
+  const invalidateDecks = useInvalidateDecks()
+  const invalidateMatches = useInvalidateMatches()
+
   const [showAddDeckForm, setShowAddDeckForm] = useState(false)
 
-  useEffect(() => {
-    fetch(`${API_BASE}/users/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Player not found')
-        return res.json()
-      })
-      .then(data => setPlayer(data))
-      .catch(() => navigate('/players'))
-  }, [id])
+  const streaks = useMemo(() => {
+    const ownerId = parseInt(id)
+    const chronological = allMatches
+      .filter((m) => m.players.some((p) => p.owner_id === ownerId))
+      .slice()
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      .map((m) => m.players.find((p) => p.owner_id === ownerId).won)
+    return computeStreaks(chronological)
+  }, [allMatches, id])
 
-  useEffect(() => {
-    if (!id) return
-    setDecksLoading(true)
-    setDecksError(null)
-    setDecks([])
-    setAllMatchPlayers([])
-
-    fetch(`${API_BASE}/decks_by_player/${id}`)
-      .then(res => {
-        if (res.status === 404) return []
-        if (!res.ok) throw new Error('Failed to load decks')
-        return res.json()
-      })
-      .then(deckData => {
-        setDecks(deckData)
-        setDecksLoading(false)
-        return Promise.all(
-          deckData.map(deck =>
-            fetch(`${API_BASE}/matches_by_deck/${deck.deckid}`)
-              .then(res => (res.status === 404 ? [] : res.json()))
-              .catch(() => [])
-          )
-        )
-      })
-      .then(results => {
-        setAllMatchPlayers(results.flat())
-      })
-      .catch(err => {
-        setDecksError(err.message)
-        setDecksLoading(false)
-      })
-  }, [id])
-
-  function handleDeckAdded (newDeck) {
-    setDecks([...decks, newDeck])
+  if (playerError) {
+    navigate('/players')
+    return null
   }
 
-  function handleDeckDeleted (deletedId) {
-    setDecks(decks.filter(d => d.deckid !== deletedId))
-    setAllMatchPlayers(allMatchPlayers.filter(mp => mp.deck_id !== deletedId))
+  function handleDeckAdded () {
+    invalidateDecks()
   }
 
-  function handleDeckUpdated(updatedDeck) {
-  setDecks(decks.map((d) =>
-    d.deckid === updatedDeck.deckid ? updatedDeck : d
-  ))
-}
+  function handleDeckDeleted () {
+    invalidateDecks()
+    invalidateMatches()
+  }
 
-  const totalWins = allMatchPlayers.filter(mp => mp.won === 1).length
-  const totalMatches = allMatchPlayers.length
+  function handleDeckUpdated () {
+    invalidateDecks()
+  }
+
+  const totalWins = decks.reduce((sum, d) => sum + (d.wins || 0), 0)
+  const totalMatches = decks.reduce((sum, d) => sum + (d.matches || 0), 0)
   const overallWinRate =
     totalMatches > 0 ? Math.round((totalWins / totalMatches) * 100) : 0
 
@@ -86,62 +72,68 @@ function PlayerDetail () {
     <div className='p-8'>
       <button
         onClick={() => navigate('/players')}
-        className='flex items-center gap-2 text-sm text-gray-400 hover:text-gray-700 mb-6 transition-colors'
+        className='flex items-center gap-2 text-sm text-parchment-faint hover:text-parchment mb-6 transition-colors'
       >
         <ArrowLeft size={14} />
-        All players
+        {t('common.allPlayers')}
       </button>
 
       {player && (
-        <h1 className='text-2xl font-medium text-gray-900 mb-6'>
+        <h1 className="font-display text-2xl tracking-wide text-parchment mb-6">
           {player.firstname} {player.lastname}
         </h1>
       )}
 
-      <div className='grid grid-cols-3 gap-4 mb-6'>
-        <div className='bg-white border border-gray-200 rounded-xl p-4'>
-          <p className='text-xs text-gray-400 mb-1'>Decks</p>
-          <p className='text-2xl font-medium text-gray-900'>{decks.length}</p>
-        </div>
-        <div className='bg-white border border-gray-200 rounded-xl p-4'>
-          <p className='text-xs text-gray-400 mb-1'>Matches</p>
-          <p className='text-2xl font-medium text-gray-900'>{totalMatches}</p>
-        </div>
-        <div className='bg-white border border-gray-200 rounded-xl p-4'>
-          <p className='text-xs text-gray-400 mb-1'>Win rate</p>
-          <p
-            className={`text-2xl font-medium ${
-              overallWinRate >= 50 ? 'text-green-600' : 'text-red-500'
-            }`}
-          >
-            {totalMatches > 0 ? `${overallWinRate}%` : '—'}
-          </p>
-        </div>
+      <div className='grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6'>
+        <StatCard label={t('stat.decks')} value={decks.length} />
+        <StatCard label={t('stat.matches')} value={totalMatches} />
+        <StatCard
+          label={t('stat.winRate')}
+          value={totalMatches > 0 ? `${overallWinRate}%` : '—'}
+          tone={totalMatches > 0 ? (overallWinRate >= 50 ? 'win' : 'loss') : undefined}
+        />
+        <StatCard
+          label={t('stat.streak')}
+          value={streaks.current > 0 ? `${streaks.currentType === 'win' ? 'W' : 'L'}${streaks.current}` : '—'}
+          tone={streaks.currentType === 'win' ? 'win' : streaks.currentType === 'loss' ? 'loss' : undefined}
+        />
       </div>
 
-      <div className='flex flex-col gap-6'>
-        <WinRateChart decks={decks} matchPlayers={allMatchPlayers} />
-        <PlacementChart matchPlayers={allMatchPlayers} />
-        </div>
-        <div className='mt-4 mb-4   gap-4 hover:border-purple-300 hover:shadow-sm transition-all text-left'>
-          <DeckList
-            decks={decks}
-            loading={decksLoading}
-            error={decksError}
-            onDeckUpdated={handleDeckUpdated}
-            onDeckDeleted={handleDeckDeleted}
+      <div className='flex flex-col gap-6 mb-6'>
+        <WinRateChart decks={decks} matchPlayers={matchPlayers} />
+        <PlacementChart matchPlayers={matchPlayers} />
+        {totalMatches > 0 && (
+          <WinRateProgressionChart
+            matches={allMatches}
+            players={allPlayers}
+            decks={allDecks}
+            subjectType="player"
+            subjectId={parseInt(id)}
           />
-          <div>
-            {!showAddDeckForm && (
-              <AddButton onClick={() => setShowAddDeckForm(!showAddDeckForm)} />
-            )}
-          </div>
+        )}
+        {totalMatches > 0 && (
+          <HeadToHead matches={allMatches} players={allPlayers} subjectOwnerId={parseInt(id)} />
+        )}
+      </div>
+
+      <div className='mb-4'>
+        <DeckList
+          decks={decks}
+          loading={decksLoading}
+          error={decksError ? decksError.message : null}
+          onDeckUpdated={handleDeckUpdated}
+          onDeckDeleted={handleDeckDeleted}
+        />
+        <div>
+          {!showAddDeckForm && (
+            <AddButton onClick={() => setShowAddDeckForm(!showAddDeckForm)} hoverText={t('decks.addDeck')} />
+          )}
         </div>
+      </div>
 
       {showAddDeckForm && (
         <AddDeckForm
           playerId={parseInt(id)}
-          className='p-6'
           onDeckAdded={handleDeckAdded}
           onClickClose={() => setShowAddDeckForm(false)}
         />

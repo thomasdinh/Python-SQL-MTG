@@ -1,75 +1,90 @@
-import { useState, useEffect } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, X, Download } from 'lucide-react'
 import MatchCard from '../components/MatchCard'
 import AddMatchForm from '../components/AddMatchForm'
 import ImportMatchesButton from '../components/ImportMatchesButton'
-import  API_BASE  from '../config'
+import MatchFilters from '../components/MatchFilters'
+import { applyMatchFilters } from '../utils/matchFilters'
+import { matchesToCsv, downloadCsv } from '../utils/csvExport'
+import { useMatchesDetailed, useInvalidateMatches } from '../hooks/useMatches'
+import { useDecks } from '../hooks/useDecks'
+import { usePlayers } from '../hooks/useUsers'
+import { useTranslation } from '../i18n/context'
 
 function Matches () {
-  const [matches, setMatches] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { t } = useTranslation()
+  const { data: matches = [], isLoading, error } = useMatchesDetailed()
+  const { data: decks = [] } = useDecks()
+  const { data: players = [] } = usePlayers()
+  const invalidateMatches = useInvalidateMatches()
   const [showForm, setShowForm] = useState(false)
 
-  function loadMatches () {
-    setLoading(true)
-    fetch(`${API_BASE}/matches/`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load matches')
-        return res.json()
-      })
-      .then(data => {
-        return Promise.all(
-          data.map(m =>
-            fetch(`${API_BASE}/matches/${m.match_id}/detail`).then(res => {
-              if (!res.ok)
-                throw new Error(`Failed to load detail for match ${m.match_id}`)
-              return res.json()
-            })
-          )
-        )
-      })
-      .then(detailed => {
-        setMatches(detailed)
-        setLoading(false)
-      })
-      .catch(err => {
-        setError(err.message)
-        setLoading(false)
-      })
-  }
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [minPlayers, setMinPlayers] = useState(null)
+  const [deckId, setDeckId] = useState(null)
+  const [ownerId, setOwnerId] = useState(null)
+  const [sort, setSort] = useState('date_desc')
 
-  useEffect(() => {
-    loadMatches()
-  }, [])
+  const visibleMatches = useMemo(
+    () => applyMatchFilters(matches, { from, to, minPlayers, deckId, ownerId, sort }),
+    [matches, from, to, minPlayers, deckId, ownerId, sort]
+  )
+
+  function clearFilters () {
+    setFrom('')
+    setTo('')
+    setMinPlayers(null)
+    setDeckId(null)
+    setOwnerId(null)
+  }
 
   function handleMatchAdded () {
     setShowForm(false)
-    loadMatches()
+    invalidateMatches()
   }
 
-  if (loading)
-    return <p className='p-8 text-sm text-gray-400'>Loading matches...</p>
-  if (error) return <p className='p-8 text-sm text-red-400'>Error: {error}</p>
+  function handleMatchDeleted () {
+    invalidateMatches()
+  }
+
+  function handleExport () {
+    const csv = matchesToCsv(visibleMatches)
+    const stamp = new Date().toISOString().slice(0, 10)
+    downloadCsv(`matches-${stamp}.csv`, csv)
+  }
+
+  if (isLoading)
+    return <p className='p-8 text-sm text-parchment-faint'>{t('common.loadingMatches')}</p>
+  if (error) return <p className='p-8 text-sm text-loss'>Error: {error.message}</p>
 
   return (
     <div className='p-8'>
       <div className='flex items-center justify-between mb-6 max-w-6xl mx-auto'>
-        <h1 className='text-2xl font-medium text-gray-900'>
-          Matches
-          <span className='text-gray-400 font-normal text-lg ml-2'>
+        <h1 className="font-display text-2xl tracking-wide text-parchment">
+          {t('matches.title')}
+          <span className='text-parchment-faint font-mono font-normal text-lg ml-2'>
             {matches.length}
           </span>
         </h1>
-        
+
         <div className='flex items-center gap-3'>
-          <ImportMatchesButton onImportComplete={loadMatches} />
+          <ImportMatchesButton onImportComplete={invalidateMatches} />
+          <button
+            onClick={handleExport}
+            disabled={visibleMatches.length === 0}
+            title={t('matches.exportCsv')}
+            className='flex items-center gap-2 border border-hairline rounded-md px-4 py-2 text-sm text-parchment-dim hover:bg-surface-raised disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+          >
+            <Download size={14} />
+            {t('matches.exportCsv')}
+          </button>
           <button
             onClick={() => setShowForm(!showForm)}
-            className='flex items-center gap-1.5 bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-purple-700 transition-colors'
+            className='flex items-center gap-1.5 bg-brass text-ink rounded-md px-4 py-2 text-sm font-medium hover:bg-brass-dim transition-colors'
           >
             {showForm ? <X size={14} /> : <Plus size={14} />}
-            {showForm ? 'Cancel' : 'Log match'}
+            {showForm ? t('common.cancel') : t('matches.logMatch')}
           </button>
         </div>
       </div>
@@ -77,8 +92,25 @@ function Matches () {
       <div className='max-w-6xl mx-auto'>
         {showForm && <AddMatchForm onMatchAdded={handleMatchAdded} />}
 
-        {matches.length === 0 && !showForm ? (
-          <p className='text-sm text-gray-400'>No matches yet.</p>
+        <MatchFilters
+          players={players}
+          decks={decks}
+          from={from} to={to} onFromChange={setFrom} onToChange={setTo}
+          minPlayers={minPlayers} onMinPlayersChange={setMinPlayers}
+          deckId={deckId} onDeckChange={setDeckId}
+          ownerId={ownerId} onOwnerChange={setOwnerId}
+          sort={sort} onSortChange={setSort}
+          onClear={clearFilters}
+        />
+
+        <p className='text-xs text-parchment-faint mb-3'>
+          {visibleMatches.length} of {matches.length} matches
+        </p>
+
+        {visibleMatches.length === 0 ? (
+          <p className='text-sm text-parchment-faint'>
+            {matches.length === 0 ? t('common.noMatchesYet') : t('common.noMatchesFilters')}
+          </p>
         ) : (
           <div
             style={{
@@ -87,13 +119,11 @@ function Matches () {
               gap: '1rem'
             }}
           >
-            {matches.map(match => (
+            {visibleMatches.map(match => (
               <MatchCard
                 key={match.match_id}
                 match={match}
-                onMatchDeleted={deletedId =>
-                  setMatches(matches.filter(m => m.match_id !== deletedId))
-                }
+                onMatchDeleted={handleMatchDeleted}
               />
             ))}
           </div>

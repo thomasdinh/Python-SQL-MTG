@@ -1,9 +1,11 @@
 import DeckCard from './DeckCard'
+import { useTranslation } from '../i18n/context'
 
 function DeckList({ decks, loading, error, onDeckDeleted, onDeckUpdated }) {
-  if (loading) return <p className="text-gray-400 text-sm">Loading decks...</p>
-  if (error)   return <p className="text-red-400 text-sm">Error: {error}</p>
-  if (decks.length === 0) return <p className="text-gray-400 text-sm">No decks found.</p>
+  const { t } = useTranslation()
+  if (loading) return <p className="text-parchment-faint text-sm">{t('common.loadingDecks')}</p>
+  if (error)   return <p className="text-loss text-sm">Error: {error}</p>
+  if (decks.length === 0) return <p className="text-parchment-faint text-sm">{t('common.noDecksFound')}</p>
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem'}}>

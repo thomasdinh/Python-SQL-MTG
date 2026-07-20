@@ -1,1 +1,112 @@
 @import "tailwindcss";
+
+/* Self-hosted fonts — no external font CDN dependency */
+@import "@fontsource/cinzel/500.css";
+@import "@fontsource/cinzel/600.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+/*
+  Design tokens for the Commander pod tracker.
+
+  The palette is drawn from the subject itself: a near-black "playmat"
+  surface, parchment-toned text like an old card's text box, and a single
+  brass accent for UI chrome (buttons, links, focus) reserved so it never
+  competes with the five mana-pip colors, which are the only place actual
+  color meaning appears (a deck's color identity).
+*/
+@theme {
+  --color-ink: #14181a;
+  --color-ink-2: #191d1f;
+  --color-surface: #1d2224;
+  --color-surface-raised: #262b2d;
+  --color-hairline: #33393b;
+  --color-hairline-2: #40474a;
+
+  --color-parchment: #ede6d6;
+  --color-parchment-dim: #9ca39f;
+  --color-parchment-faint: #6b716d;
+
+  --color-brass: #c9a227;
+  --color-brass-dim: #8f7527;
+
+  --color-win: #7ba05b;
+  --color-loss: #b5493a;
+  --color-draw: #4a8ab5;
+
+  /* mana-pip colors — reserved for deck color-identity, nowhere else */
+  --color-mana-w: #e8dfc0;
+  --color-mana-u: #3e7cb1;
+  --color-mana-b: #6a5a80;
+  --color-mana-r: #b5543a;
+  --color-mana-g: #5c8a5f;
+  --color-mana-c: #86837c;
+
+  --font-display: "Cinzel", "Iowan Old Style", serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/*
+  Light theme — same "parchment" concept, inverted: warm off-white paper
+  instead of a near-black playmat, dark ink-brown text instead of pale
+  parchment text. Token *names* stay the same on purpose (bg-ink,
+  text-parchment, etc.) so no component needs to change — only the values
+  these CSS variables resolve to change, via this attribute override.
+*/
+:root[data-theme="light"] {
+  --color-ink: #f2ede0;
+  --color-ink-2: #ece5d2;
+  --color-surface: #fbf8f0;
+  --color-surface-raised: #f0e9d8;
+  --color-hairline: #d9d0ba;
+  --color-hairline-2: #c7bc9e;
+
+  --color-parchment: #26211a;
+  --color-parchment-dim: #5c5340;
+  --color-parchment-faint: #83795e;
+
+  --color-brass: #a9821f;
+  --color-brass-dim: #7a5f18;
+
+  --color-win: #4f7a3b;
+  --color-loss: #96392b;
+  --color-draw: #2e6a8c;
+
+  --color-mana-w: #d8cba0;
+
+  color-scheme: light;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-parchment);
+  font-family: var(--font-body);
+}
+
+::selection {
+  background: var(--color-brass);
+  color: var(--color-ink);
+}
+
+/* Visible keyboard focus everywhere, styled to match the brass accent */
+:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
