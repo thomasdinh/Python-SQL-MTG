@@ -9,6 +9,7 @@ import Decks from './pages/Decks'
 import DeckDetail from './pages/DeckDetail'
 import TierList from './pages/TierList'
 import Settings from './pages/Settings'
+import Compare from './pages/Compare'
 import { applyTheme, watchSystemTheme } from './theme'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
         <Route path="/decks/:id" element={<DeckDetail />} />
         <Route path="/tierlist" element={<TierList />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/compare" element={<Compare />} />
       </Routes>
     </div>
   )

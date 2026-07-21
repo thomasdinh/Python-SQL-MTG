@@ -14,6 +14,7 @@ function Navbar() {
     { to: '/matches', label: t('nav.matches') },
     { to: '/decks', label: t('nav.decks') },
     { to: '/tierlist', label: t('nav.tierlist') },
+    { to: '/compare', label: t('matches.compareTitle') },
   ]
 
   return (

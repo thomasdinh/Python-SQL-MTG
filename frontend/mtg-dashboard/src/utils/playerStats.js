@@ -36,6 +36,19 @@ export function computePlayerStats (players, matches, decks) {
   })
 }
 
+/**
+ * Same as computePlayerStats, but scoped to matches within [from, to] and
+ * optionally one playgroup — implemented by filtering the match list first
+ * and reusing the all-time logic above, rather than duplicating it.
+ */
+export function computePlayerStatsInRange (players, matches, decks, { from, to, groupId } = {}) {
+  let filtered = matches
+  if (from) filtered = filtered.filter((m) => m.date && m.date >= from)
+  if (to) filtered = filtered.filter((m) => m.date && m.date <= to)
+  if (groupId != null) filtered = filtered.filter((m) => m.group_id === groupId)
+  return computePlayerStats(players, filtered, decks)
+}
+
 export function sortPlayers (playerStats, sort) {
   const result = [...playerStats]
   switch (sort) {
