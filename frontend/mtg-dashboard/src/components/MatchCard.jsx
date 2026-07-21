@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trash2, Trophy, Swords } from 'lucide-react'
-import  API_BASE  from '../config'
+import API_BASE from '../config'
 import { useTranslation } from '../i18n/context'
 
 function MatchCard ({ match, onMatchDeleted }) {
@@ -31,7 +31,7 @@ function MatchCard ({ match, onMatchDeleted }) {
           #{match.match_id ? match.match_id : '—'}
         </p>
         <p className='text-xs font-mono text-parchment-dim'>
-          {match.date ? match.date.slice(0, 10) : '—'}
+          {match.date ? new Date(match.date).toLocaleDateString('en-GB') : '—'}
         </p>
         <button
           onClick={handleDelete}
@@ -74,7 +74,9 @@ function MatchCard ({ match, onMatchDeleted }) {
             </span>
             <span
               className={`flex-1 truncate ${
-                player.won === 1 ? 'text-parchment font-medium' : 'text-parchment-dim'
+                player.won === 1
+                  ? 'text-parchment font-medium'
+                  : 'text-parchment-dim'
               }`}
             >
               {player.deck_name}
@@ -84,7 +86,9 @@ function MatchCard ({ match, onMatchDeleted }) {
       </div>
 
       {match.comment && (
-        <p className='text-xs text-parchment-faint mt-3 italic'>{match.comment}</p>
+        <p className='text-xs text-parchment-faint mt-3 italic'>
+          {match.comment}
+        </p>
       )}
     </div>
   )

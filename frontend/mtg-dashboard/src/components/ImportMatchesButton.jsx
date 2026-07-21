@@ -159,6 +159,10 @@ function ImportMatchesButton({ onImportComplete }) {
       return id
     })
 
+    if (new Set(deckIds).size !== deckIds.length) {
+      throw new Error(`A deck appears more than once in this row: "${row['Decklist']}"`)
+    }
+
     // pad results
     while (results.length < deckNames.length) results.push('0')
 
