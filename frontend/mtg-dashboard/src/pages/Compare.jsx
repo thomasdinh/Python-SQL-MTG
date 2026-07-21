@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { TrendingUp, TrendingDown, Minus, Layers, User } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Layers, User, ArrowRight } from 'lucide-react'
 import PeriodPicker from '../components/PeriodPicker'
 import ColorIdentity from '../components/ColorIdentity'
+import RecentForm from '../components/RecentForm'
 import { useDecks } from '../hooks/useDecks'
 import { usePlayers } from '../hooks/useUsers'
 import { useMatchesDetailed } from '../hooks/useMatches'
@@ -49,30 +50,14 @@ function Compare () {
         ))}
       </div>
 
-      {subjectType === 'decks' && (
-        <EntityComparison
-          type="deck"
-          items={decks}
-          matches={matches}
-          decks={decks}
-        />
-      )}
-      {subjectType === 'players' && (
-        <EntityComparison
-          type="player"
-          items={players}
-          matches={matches}
-          decks={decks}
-        />
-      )}
-      {subjectType === 'tierlist' && (
-        <TierListComparison decks={decks} matches={matches} />
-      )}
+      {subjectType === 'decks' && <EntityComparison type="deck" items={decks} matches={matches} decks={decks} players={players} />}
+      {subjectType === 'players' && <EntityComparison type="player" items={players} matches={matches} decks={decks} players={players} />}
+      {subjectType === 'tierlist' && <TierListComparison decks={decks} matches={matches} />}
     </div>
   )
 }
 
-function EntityComparison ({ type, items, matches, decks }) {
+function EntityComparison ({ type, items, matches, decks, players }) {
   const { t } = useTranslation()
   const idKey = type === 'deck' ? 'deckid' : 'userid'
   const nameOf = (item) => (type === 'deck' ? item.deckname : `${item.firstname} ${item.lastname}`)
@@ -103,10 +88,10 @@ function EntityComparison ({ type, items, matches, decks }) {
       .filter(Boolean)
       .map((item) =>
         type === 'deck'
-          ? compareDeckPeriods(item, matches, periodA, periodB)
-          : comparePlayerPeriods(item, matches, decks, periodA, periodB)
+          ? compareDeckPeriods(item, decks, matches, periodA, periodB)
+          : comparePlayerPeriods(item, players, matches, decks, periodA, periodB)
       )
-  }, [mode, selectedIds, items, idKey, type, matches, decks, periodA, periodB])
+  }, [mode, selectedIds, items, idKey, type, matches, decks, players, periodA, periodB])
 
   const entityResults = useMemo(() => {
     if (mode !== 'entities') return []
@@ -139,9 +124,7 @@ function EntityComparison ({ type, items, matches, decks }) {
       </div>
 
       <div className="bg-surface border border-hairline rounded-lg p-4">
-        <p className="text-xs text-parchment-dim mb-2">
-          {mode === 'entities' ? t('matches.compareSelectEntities') : t('matches.compareSelectEntities')}
-        </p>
+        <p className="text-xs text-parchment-dim mb-2">{t('matches.compareSelectEntities')}</p>
         <div className="flex flex-wrap gap-2">
           {items.map((item) => {
             const id = item[idKey]
@@ -187,7 +170,7 @@ function EntityComparison ({ type, items, matches, decks }) {
           {timeResults.length === 0 ? (
             <p className="text-sm text-parchment-faint">{t('matches.compareSelectOne')}</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {timeResults.map((r) => (
                 <TimeComparisonCard key={(r.deck || r.player)[idKey]} result={r} type={type} nameOf={nameOf} t={t} />
               ))}
@@ -224,30 +207,62 @@ function EntityComparison ({ type, items, matches, decks }) {
   )
 }
 
+/**
+ * The expanded per-entity comparison card: win rate, usage (relative to
+ * the busiest entity in that same period), within-period trend, a
+ * recent-form dot row per period (the closest thing to a 'progression
+ * shape' without needing a full chart), and — for decks only — where it
+ * sat on the tier list in each period.
+ */
 function TimeComparisonCard ({ result, type, nameOf, t }) {
   const item = type === 'deck' ? result.deck : result.player
   return (
     <div className="bg-ink-2 border border-hairline rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4">
         {type === 'deck' ? <Layers size={14} className="text-parchment-faint" /> : <User size={14} className="text-parchment-faint" />}
         <p className="text-parchment font-medium truncate">{nameOf(item)}</p>
         {type === 'deck' && <ColorIdentity color={item.color} size={12} />}
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <PeriodStat label={result.a.label || result.a.from} stats={result.a} t={t} />
-        <PeriodStat label={result.b.label || result.b.from} stats={result.b} t={t} />
+
+      <div className="grid grid-cols-2 gap-4 mb-3">
+        <PeriodColumn label={result.a.label || result.a.from} stats={result.a} t={t} />
+        <PeriodColumn label={result.b.label || result.b.from} stats={result.b} t={t} />
       </div>
-      <div className="mt-3 pt-3 border-t border-hairline flex items-center justify-center gap-2">
-        <DeltaBadge delta={result.winRateDelta} suffix="%" scale={100} />
-        <span className="text-xs text-parchment-faint font-mono">
-          ({result.gamesDelta >= 0 ? '+' : ''}{result.gamesDelta} {t('matches.compareGames')})
-        </span>
+
+      <div className="grid grid-cols-2 gap-4 pb-3 border-b border-hairline">
+        <div className="min-w-0">
+          <RecentForm chronologicalResults={result.a.chronological} size="sm" />
+        </div>
+        <div className="min-w-0">
+          <RecentForm chronologicalResults={result.b.chronological} size="sm" />
+        </div>
+      </div>
+
+      <div className="pt-3 flex flex-col gap-2">
+        <MetricDeltaRow label={t('matches.compareWinRate')} delta={result.winRateDelta} suffix="%" scale={100} />
+        <MetricDeltaRow label={t('matches.compareGames')} delta={result.gamesDelta} />
+        <MetricDeltaRow
+          label={t('matches.compareUsage')}
+          delta={deltaOf(result.a.usageShare, result.b.usageShare)}
+          suffix="%"
+          scale={100}
+        />
+        {type === 'deck' && (result.tierA || result.tierB) && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-parchment-dim">{t('matches.compareTier')}</span>
+            <div className="flex items-center gap-2">
+              <TierPill tier={result.tierA} t={t} />
+              <ArrowRight size={12} className="text-parchment-faint" />
+              <TierPill tier={result.tierB} t={t} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-function PeriodStat ({ label, stats, t }) {
+function PeriodColumn ({ label, stats, t }) {
   return (
     <div className="text-center">
       <p className="text-xs text-parchment-faint mb-1 truncate">{label}</p>
@@ -255,6 +270,28 @@ function PeriodStat ({ label, stats, t }) {
         {stats.winRate != null ? `${Math.round(stats.winRate * 100)}%` : '—'}
       </p>
       <p className="text-xs font-mono text-parchment-faint">{stats.matches} {t('matches.compareGames')}</p>
+      <TrendChip trend={stats.trend} t={t} />
+    </div>
+  )
+}
+
+function TrendChip ({ trend, t }) {
+  if (!trend) return null
+  const Icon = trend.direction === 'up' ? TrendingUp : trend.direction === 'down' ? TrendingDown : Minus
+  const color = trend.direction === 'up' ? 'text-win' : trend.direction === 'down' ? 'text-loss' : 'text-parchment-faint'
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[10px] font-mono mt-0.5 ${color}`} title={t('analysis.trendHint')}>
+      <Icon size={9} />
+      {trend.direction === 'stable' ? t('analysis.stable') : `${trend.deltaPct > 0 ? '+' : ''}${trend.deltaPct.toFixed(0)}%`}
+    </span>
+  )
+}
+
+function MetricDeltaRow ({ label, delta, suffix = '', scale = 1 }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-parchment-dim">{label}</span>
+      <DeltaBadge delta={delta} suffix={suffix} scale={scale} />
     </div>
   )
 }
@@ -300,6 +337,16 @@ function DeltaBadge ({ delta, suffix = '', scale = 1 }) {
   )
 }
 
+function deltaOf (a, b) {
+  if (a == null || b == null) return null
+  return b - a
+}
+
+/**
+ * Tier list comparison, as a card grid rather than a row list — each deck
+ * gets its own card with two big tier badges and a prominent colored
+ * arrow between them, sorted biggest improvement first.
+ */
 function TierListComparison ({ decks, matches }) {
   const { t } = useTranslation()
   const [periodA, setPeriodA] = useState({ from: daysAgo(180), to: daysAgo(91) })
@@ -337,32 +384,63 @@ function TierListComparison ({ decks, matches }) {
       </div>
 
       {results.length === 0 ? (
-        <p className="text-sm text-parchment-faint">{t('matches.compareNoData')}</p>
+        <p className="text-sm text-parchment-faint">{t('matches.compareNoTierData')}</p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {results.map((r) => (
-            <div key={r.deck.deckid} className="bg-surface border border-hairline rounded-lg p-3 flex items-center gap-3">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <ColorIdentity color={r.deck.color} size={13} />
-                <p className="text-sm text-parchment truncate">{r.deck.deckname}</p>
-              </div>
-              <TierPill tier={r.tierA} t={t} />
-              <span className="text-parchment-faint">→</span>
-              <TierPill tier={r.tierB} t={t} />
-              <div className="w-20 text-right">
-                {r.movement == null ? (
-                  <span className="text-xs text-parchment-faint">—</span>
-                ) : r.movement === 0 ? (
-                  <span className="flex items-center justify-end gap-1 text-xs text-parchment-faint"><Minus size={11} /> 0</span>
-                ) : r.movement > 0 ? (
-                  <span className="flex items-center justify-end gap-1 text-xs font-mono text-win"><TrendingUp size={11} /> +{r.movement}</span>
-                ) : (
-                  <span className="flex items-center justify-end gap-1 text-xs font-mono text-loss"><TrendingDown size={11} /> {r.movement}</span>
-                )}
-              </div>
-            </div>
+            <TierMovementCard key={r.deck.deckid} result={r} t={t} />
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+function TierMovementCard ({ result, t }) {
+  const { deck, tierA, tierB, movement, winRateA, winRateB } = result
+  const direction = movement == null ? null : movement > 0 ? 'up' : movement < 0 ? 'down' : 'flat'
+  const arrowColor = direction === 'up' ? 'text-win' : direction === 'down' ? 'text-loss' : 'text-parchment-faint'
+
+  return (
+    <div className="bg-ink-2 border border-hairline rounded-lg p-4 flex flex-col items-center gap-3">
+      <div className="flex items-center gap-2 min-w-0 self-start">
+        <ColorIdentity color={deck.color} size={13} />
+        <p className="text-sm text-parchment font-medium truncate">{deck.deckname}</p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <BigTierBadge tier={tierA} winRate={winRateA} t={t} />
+        {direction === 'up' && <TrendingUp size={22} className={arrowColor} />}
+        {direction === 'down' && <TrendingDown size={22} className={arrowColor} />}
+        {direction === 'flat' && <ArrowRight size={22} className={arrowColor} />}
+        {direction === null && <ArrowRight size={22} className="text-parchment-faint" />}
+        <BigTierBadge tier={tierB} winRate={winRateB} t={t} />
+      </div>
+
+      <p className={`text-sm font-mono font-medium ${arrowColor}`}>
+        {movement == null ? '—' : movement === 0 ? t('analysis.stable') : `${movement > 0 ? '+' : ''}${movement} tier${Math.abs(movement) === 1 ? '' : 's'}`}
+      </p>
+    </div>
+  )
+}
+
+function BigTierBadge ({ tier, winRate, t }) {
+  if (!tier) {
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <div className="w-14 h-14 rounded-lg bg-ink border border-dashed border-hairline-2 flex items-center justify-center">
+          <span className="text-xs text-parchment-faint">{t('matches.compareUnranked').slice(0, 3)}</span>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="w-14 h-14 rounded-lg flex items-center justify-center" style={{ background: TIER_COLORS[tier] }}>
+        <span className="font-display text-lg tracking-wide text-ink">{tier}</span>
+      </div>
+      {winRate != null && (
+        <span className="text-[10px] font-mono text-parchment-faint">{Math.round(winRate * 100)}%</span>
       )}
     </div>
   )
