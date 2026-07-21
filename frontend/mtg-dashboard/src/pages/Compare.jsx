@@ -7,9 +7,11 @@ import { useDecks } from '../hooks/useDecks'
 import { usePlayers } from '../hooks/useUsers'
 import { useMatchesDetailed } from '../hooks/useMatches'
 import TierDeckCard from '../components/TierDeckCard'
+import ComparisonReport from '../components/ComparisonReport'
 import { computeDeckStatsInRange, TIER_COLORS, TIER_LEVELS } from '../utils/deckTiers'
 import { computePlayerStatsInRange } from '../utils/playerStats'
 import { compareDeckPeriods, comparePlayerPeriods, compareTierListPeriods } from '../utils/comparison'
+import { generateDeckReport, generatePlayerReport } from '../utils/comparisonReport'
 import { daysAgo } from '../utils/dateRanges'
 import { useTranslation } from '../i18n/context'
 
@@ -65,6 +67,7 @@ function EntityComparison ({ type, items, matches, decks, players }) {
 
   const [mode, setMode] = useState('time') // 'time' | 'entities'
   const [selectedIds, setSelectedIds] = useState([])
+  const [showReport, setShowReport] = useState(false)
   const [periodA, setPeriodA] = useState({ from: daysAgo(180), to: daysAgo(91) })
   const [periodB, setPeriodB] = useState({ from: daysAgo(90), to: daysAgo(0) })
   const [singlePeriod, setSinglePeriod] = useState({ from: '', to: '' })
@@ -102,6 +105,16 @@ function EntityComparison ({ type, items, matches, decks, players }) {
       ? computeDeckStatsInRange(selectedItems, matches, { from: singlePeriod.from, to: singlePeriod.to })
       : computePlayerStatsInRange(selectedItems, matches, decks, { from: singlePeriod.from, to: singlePeriod.to })
   }, [mode, selectedIds, items, idKey, type, matches, decks, singlePeriod])
+
+  const report = useMemo(() => {
+    if (mode !== 'entities' || selectedIds.length !== 2) return null
+    const [item1, item2] = selectedIds.map((id) => items.find((i) => i[idKey] === id))
+    if (!item1 || !item2) return null
+    const period = { ...singlePeriod }
+    return type === 'deck'
+      ? generateDeckReport(item1, item2, decks, matches, period, null, {}, t)
+      : generatePlayerReport(item1, item2, players, decks, matches, period, null, t)
+  }, [mode, selectedIds, items, idKey, type, decks, players, matches, singlePeriod, t])
 
   const inputClass = 'bg-ink border border-hairline rounded-md px-3 py-2 text-sm text-parchment outline-none focus:border-brass'
 
@@ -181,19 +194,34 @@ function EntityComparison ({ type, items, matches, decks, players }) {
       ) : (
         <>
           <div className="bg-surface border border-hairline rounded-lg p-4">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-parchment-dim">{t('common.from')}</label>
-                <input type="date" value={singlePeriod.from} onChange={(e) => setSinglePeriod({ ...singlePeriod, from: e.target.value })} className={inputClass} />
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-parchment-dim">{t('common.from')}</label>
+                  <input type="date" value={singlePeriod.from} onChange={(e) => setSinglePeriod({ ...singlePeriod, from: e.target.value })} className={inputClass} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-parchment-dim">{t('common.to')}</label>
+                  <input type="date" value={singlePeriod.to} onChange={(e) => setSinglePeriod({ ...singlePeriod, to: e.target.value })} className={inputClass} />
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-parchment-dim">{t('common.to')}</label>
-                <input type="date" value={singlePeriod.to} onChange={(e) => setSinglePeriod({ ...singlePeriod, to: e.target.value })} className={inputClass} />
-              </div>
+              {selectedIds.length === 2 && (
+                <button
+                  type="button"
+                  onClick={() => setShowReport(!showReport)}
+                  className={`text-xs px-3 py-2 rounded-md border transition-colors ${
+                    showReport ? 'border-brass text-brass bg-brass/10' : 'border-hairline text-parchment-dim hover:bg-surface-raised'
+                  }`}
+                >
+                  {showReport ? t('matches.reportBack') : t('matches.reportView')}
+                </button>
+              )}
             </div>
           </div>
 
-          {entityResults.length === 0 ? (
+          {showReport && report ? (
+            <ComparisonReport report={report} name1={nameOf(items.find((i) => i[idKey] === selectedIds[0]))} name2={nameOf(items.find((i) => i[idKey] === selectedIds[1]))} />
+          ) : entityResults.length === 0 ? (
             <p className="text-sm text-parchment-faint">{t('matches.compareSelectEntities')}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
