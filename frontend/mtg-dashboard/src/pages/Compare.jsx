@@ -6,7 +6,8 @@ import RecentForm from '../components/RecentForm'
 import { useDecks } from '../hooks/useDecks'
 import { usePlayers } from '../hooks/useUsers'
 import { useMatchesDetailed } from '../hooks/useMatches'
-import { computeDeckStatsInRange, TIER_COLORS } from '../utils/deckTiers'
+import TierDeckCard from '../components/TierDeckCard'
+import { computeDeckStatsInRange, TIER_COLORS, TIER_LEVELS } from '../utils/deckTiers'
 import { computePlayerStatsInRange } from '../utils/playerStats'
 import { compareDeckPeriods, comparePlayerPeriods, compareTierListPeriods } from '../utils/comparison'
 import { daysAgo } from '../utils/dateRanges'
@@ -343,9 +344,12 @@ function deltaOf (a, b) {
 }
 
 /**
- * Tier list comparison, as a card grid rather than a row list — each deck
- * gets its own card with two big tier badges and a prominent colored
- * arrow between them, sorted biggest improvement first.
+ * A single tier list — organized by the deck's CURRENT (period B)
+ * placement, same row structure as the standalone Tier List page — with
+ * each deck shown as a card (not the compact chip) carrying a small
+ * green up-arrow or red down-arrow baked into its thumbnail showing
+ * where it moved from. This reads as "here's the tier list, annotated
+ * with what changed" rather than two separate tier lists side by side.
  */
 function TierListComparison ({ decks, matches }) {
   const { t } = useTranslation()
@@ -361,6 +365,17 @@ function TierListComparison ({ decks, matches }) {
     () => compareTierListPeriods(decks, matches, periodA, periodB, { minGames: 3 }),
     [decks, matches, periodA, periodB]
   )
+
+  const { byTier, unranked } = useMemo(() => {
+    const byTier = {}
+    for (const tier of TIER_LEVELS) byTier[tier] = []
+    const unranked = []
+    for (const r of results) {
+      if (r.tierB) byTier[r.tierB].push(r)
+      else unranked.push(r)
+    }
+    return { byTier, unranked }
+  }, [results])
 
   return (
     <div className="flex flex-col gap-6">
@@ -386,62 +401,60 @@ function TierListComparison ({ decks, matches }) {
       {results.length === 0 ? (
         <p className="text-sm text-parchment-faint">{t('matches.compareNoTierData')}</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {results.map((r) => (
-            <TierMovementCard key={r.deck.deckid} result={r} t={t} />
+        <div className="flex flex-col gap-2">
+          {TIER_LEVELS.map((tier) => (
+            <ComparisonTierRow key={tier} tier={tier} entries={byTier[tier]} t={t} />
           ))}
+
+          {unranked.length > 0 && (
+            <div className="flex border border-hairline border-dashed rounded-lg overflow-hidden mt-2">
+              <div className="w-20 flex-shrink-0 flex items-center justify-center bg-ink-2">
+                <span className="text-sm font-display tracking-wide text-parchment-faint">—</span>
+              </div>
+              <div className="flex-1 bg-surface p-3 flex flex-wrap gap-2 items-start">
+                {unranked.map((r) => (
+                  <TierDeckCard
+                    key={r.deck.deckid}
+                    deck={{ ...r.deck, winRate: r.winRateB }}
+                    metric="winrate"
+                    movement={r.movement}
+                    muted
+                  />
+                ))}
+                <span className="text-xs text-parchment-faint mt-1.5">{t('tierlist.unranked')}</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-function TierMovementCard ({ result, t }) {
-  const { deck, tierA, tierB, movement, winRateA, winRateB } = result
-  const direction = movement == null ? null : movement > 0 ? 'up' : movement < 0 ? 'down' : 'flat'
-  const arrowColor = direction === 'up' ? 'text-win' : direction === 'down' ? 'text-loss' : 'text-parchment-faint'
-
+function ComparisonTierRow ({ tier, entries, t }) {
+  const empty = entries.length === 0
   return (
-    <div className="bg-ink-2 border border-hairline rounded-lg p-4 flex flex-col items-center gap-3">
-      <div className="flex items-center gap-2 min-w-0 self-start">
-        <ColorIdentity color={deck.color} size={13} />
-        <p className="text-sm text-parchment font-medium truncate">{deck.deckname}</p>
+    <div className="flex border border-hairline rounded-lg overflow-hidden">
+      <div
+        className="w-20 flex-shrink-0 flex items-center justify-center"
+        style={{ background: TIER_COLORS[tier] }}
+      >
+        <span className="text-lg font-display tracking-wide text-ink">{tier}</span>
       </div>
-
-      <div className="flex items-center gap-3">
-        <BigTierBadge tier={tierA} winRate={winRateA} t={t} />
-        {direction === 'up' && <TrendingUp size={22} className={arrowColor} />}
-        {direction === 'down' && <TrendingDown size={22} className={arrowColor} />}
-        {direction === 'flat' && <ArrowRight size={22} className={arrowColor} />}
-        {direction === null && <ArrowRight size={22} className="text-parchment-faint" />}
-        <BigTierBadge tier={tierB} winRate={winRateB} t={t} />
+      <div className={`flex-1 p-3 flex flex-wrap gap-2 items-start ${empty ? 'bg-ink-2' : 'bg-surface'}`}>
+        {empty ? (
+          <span className="text-xs text-parchment-faint">{t('tierlist.noDecks')}</span>
+        ) : (
+          entries.map((r) => (
+            <TierDeckCard
+              key={r.deck.deckid}
+              deck={{ ...r.deck, winRate: r.winRateB }}
+              metric="winrate"
+              movement={r.movement}
+            />
+          ))
+        )}
       </div>
-
-      <p className={`text-sm font-mono font-medium ${arrowColor}`}>
-        {movement == null ? '—' : movement === 0 ? t('analysis.stable') : `${movement > 0 ? '+' : ''}${movement} tier${Math.abs(movement) === 1 ? '' : 's'}`}
-      </p>
-    </div>
-  )
-}
-
-function BigTierBadge ({ tier, winRate, t }) {
-  if (!tier) {
-    return (
-      <div className="flex flex-col items-center gap-1">
-        <div className="w-14 h-14 rounded-lg bg-ink border border-dashed border-hairline-2 flex items-center justify-center">
-          <span className="text-xs text-parchment-faint">{t('matches.compareUnranked').slice(0, 3)}</span>
-        </div>
-      </div>
-    )
-  }
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="w-14 h-14 rounded-lg flex items-center justify-center" style={{ background: TIER_COLORS[tier] }}>
-        <span className="font-display text-lg tracking-wide text-ink">{tier}</span>
-      </div>
-      {winRate != null && (
-        <span className="text-[10px] font-mono text-parchment-faint">{Math.round(winRate * 100)}%</span>
-      )}
     </div>
   )
 }
