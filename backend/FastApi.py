@@ -6,6 +6,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from sqlalchemy.exc import IntegrityError
 from typing import List
 
 import uvicorn
@@ -71,7 +72,13 @@ def delete_user(user_id: int):
     user = db.select(database.User, {"userid": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    db.delete(database.User, {"userid": user_id})
+    try:
+        db.delete(database.User, {"userid": user_id})
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Cannot delete this player — they still own decks. Delete or reassign those decks first.")
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Error occurred while deleting user: {e}")
     return {"message": "User deleted successfully"}
 
 @app.put("/users/{user_id}", response_model=schemas.UserResponse)
@@ -214,7 +221,11 @@ def delete_match(match_id: int):
     match = db.select(database.MtgMatch, {"match_id": match_id})
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    db.delete(database.MtgMatch, {"match_id": match_id})
+    try:
+        db.delete(database.MtgMatch, {"match_id": match_id})
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Error occurred while deleting match: {e}")
     return {"message": "Match deleted successfully"}
 
 @app.get("/decks/name/{deckname}", response_model=schemas.DeckResponse)
@@ -304,14 +315,20 @@ def update_deck(deck_id: int, deck: schemas.DeckRequest):
         raise  HTTPException(status_code=he.status_code, detail=he.detail)
     except Exception as e:
         print(f"Error occurred: {e}")
-        raise HTTPException(status_code=500, detail="Error occurred while updating deck")
+        raise HTTPException(status_code=500, detail=f"Error occurred while updating deck: {e}")
 
 @app.delete("/decks/{deck_id}")
 def delete_deck(deck_id: int):
     deck = db.select(database.Deck, {"deckid": deck_id})
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
-    db.delete(database.Deck, {"deckid": deck_id})
+    try:
+        db.delete(database.Deck, {"deckid": deck_id})
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Cannot delete this deck — it still has match history attached. Delete its matches first, or remove it from those matches.")
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Error occurred while deleting deck: {e}")
     return {"message": "Deck deleted successfully"}
 
 @app.delete("/decks/name/{deckname}")
@@ -319,7 +336,13 @@ def delete_deck_by_name(deckname: str):
     deck = db.select(database.Deck, {"deckname": deckname})
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
-    db.delete(database.Deck, {"deckname": deckname})
+    try:
+        db.delete(database.Deck, {"deckname": deckname})
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Cannot delete this deck — it still has match history attached. Delete its matches first, or remove it from those matches.")
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Error occurred while deleting deck: {e}")
     return {"message": "Deck deleted successfully"}
 
 @app.get("/decks_by_player/{ownerid}", response_model=List[schemas.DeckResponse])
@@ -400,8 +423,12 @@ def delete_match_player(mp_id: int):
     mp = db.select(database.MatchPlayer, {"id": mp_id})
     if not mp:
         raise HTTPException(status_code=404, detail="Match player not found")
-    db.delete(database.MatchPlayer, {"id": mp_id})
-    return {"message": "Match player deleted successfully"} 
+    try:
+        db.delete(database.MatchPlayer, {"id": mp_id})
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Error occurred while deleting match player: {e}")
+    return {"message": "Match player deleted successfully"}
 
 @app.put("/matchplayers/{mp_id}", response_model=schemas.MatchPlayersResponse)
 def update_match_player(mp_id: int, mp: schemas.MatchPlayerRequest):
