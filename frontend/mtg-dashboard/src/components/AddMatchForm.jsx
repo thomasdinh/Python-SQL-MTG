@@ -48,7 +48,16 @@ function AddMatchForm({ onMatchAdded }) {
     return null
   }
 
-  function handleSubmit() {
+  async function readError (res, fallback) {
+    try {
+      const body = await res.json()
+      return body.detail || fallback
+    } catch {
+      return fallback
+    }
+  }
+
+  async function handleSubmit () {
     const validationError = validate()
     if (validationError) {
       setError(validationError)
@@ -58,59 +67,69 @@ function AddMatchForm({ onMatchAdded }) {
     setSubmitting(true)
     setError(null)
 
-    const winner = participants.find((p) => p.placement === 1)
+    let newMatch
 
-    // step 1 — create the match
-    fetch(`${API_BASE}/matches/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        Decklist: winner ? String(winner.deckId) : 'tbd',
-        match_result: 'completed',
-        date: date,
-        group_id: 1,
-        comment: comment.trim() || null,
+    try {
+      // step 1 — create the match
+      //
+      // Decklist/match_result here are legacy fields — actual match logic
+      // reads participants/results from MatchPlayers, never from these —
+      // but writing the real deck IDs and results in makes a raw table
+      // glance readable instead of looking like something's broken.
+      const matchRes = await fetch(`${API_BASE}/matches/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          Decklist: participants.map((p) => p.deckId).join(','),
+          match_result: participants.map((p) => (p.placement === 1 ? '1' : '0')).join(','),
+          date: date,
+          group_id: 1,
+          comment: comment.trim() || null,
+        })
       })
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to create match')
-        return res.json()
-      })
-      .then((newMatch) => {
-        // step 2 — create a matchplayer for each participant in parallel
-        return Promise.all(
-          participants.map((p) =>
-            fetch(`${API_BASE}/matchplayers/`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                match_id: newMatch.match_id,
-                deck_id: parseInt(p.deckId),
-                placement: p.placement,
-                won: p.placement === 1 ? 1 : 0,
-              })
-            }).then((res) => {
-              if (!res.ok) throw new Error('Failed to create match player')
-              return res.json()
+      if (!matchRes.ok) throw new Error(await readError(matchRes, 'Failed to create match'))
+      newMatch = await matchRes.json()
+
+      // step 2 — create a matchplayer for each participant in parallel
+      const results = await Promise.allSettled(
+        participants.map((p) =>
+          fetch(`${API_BASE}/matchplayers/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              match_id: newMatch.match_id,
+              deck_id: parseInt(p.deckId),
+              placement: p.placement,
+              won: p.placement === 1 ? 1 : 0,
             })
-          )
-        ).then(() => newMatch)
-      })
-      .then((newMatch) => {
-        // reset form
-        setDate(new Date().toISOString().slice(0, 10))
-        setComment('')
-        setParticipants([
-          { deckId: '', placement: 1 },
-          { deckId: '', placement: 2 },
-        ])
-        setSubmitting(false)
-        onMatchAdded(newMatch.match_id)
-      })
-      .catch((err) => {
-        setError(err.message)
-        setSubmitting(false)
-      })
+          }).then(async (res) => {
+            if (!res.ok) throw new Error(await readError(res, 'Failed to create match player'))
+            return res.json()
+          })
+        )
+      )
+
+      const failed = results.find((r) => r.status === 'rejected')
+      if (failed) {
+        // don't leave a match with no (or partial) players behind —
+        // this is exactly what caused a pile of orphaned matches before
+        await fetch(`${API_BASE}/matches/${newMatch.match_id}`, { method: 'DELETE' }).catch(() => {})
+        throw failed.reason
+      }
+
+      // reset form
+      setDate(new Date().toISOString().slice(0, 10))
+      setComment('')
+      setParticipants([
+        { deckId: '', placement: 1 },
+        { deckId: '', placement: 2 },
+      ])
+      setSubmitting(false)
+      onMatchAdded(newMatch.match_id)
+    } catch (err) {
+      setError(err.message)
+      setSubmitting(false)
+    }
   }
 
   return (

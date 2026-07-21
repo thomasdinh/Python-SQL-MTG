@@ -167,12 +167,20 @@ function ImportMatchesButton({ onImportComplete }) {
     // auto-increment, same as every other way of creating a match in this
     // app. A CSV's match_id is just whatever the original export happened
     // to use; it has no meaning to import against.
+    //
+    // Decklist/match_result on the match row itself are legacy fields —
+    // the app's actual match logic reads participants/results from
+    // MatchPlayers, never from these. But leaving them as "just the first
+    // deck's ID" and a hardcoded "completed" makes a raw table look like
+    // something's broken when it isn't, so they're filled with the real
+    // deck IDs and results here purely for readability if you ever look
+    // directly at the table.
     const matchRes = await fetch(`${API_BASE}/matches/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        Decklist: String(deckIds[0]),
-        match_result: 'completed',
+        Decklist: deckIds.join(','),
+        match_result: results.slice(0, deckIds.length).join(','),
         date,
         group_id: groupId,
         comment: comment || null,
@@ -181,7 +189,7 @@ function ImportMatchesButton({ onImportComplete }) {
     await throwOnError(matchRes, 'Failed to create match')
     const newMatch = await matchRes.json()
 
-    await Promise.all(
+    const mpResults = await Promise.allSettled(
       deckIds.map((deckId, i) =>
         fetch(`${API_BASE}/matchplayers/`, {
           method: 'POST',
@@ -195,6 +203,16 @@ function ImportMatchesButton({ onImportComplete }) {
         }).then(r => throwOnError(r, 'Failed to create match player'))
       )
     )
+
+    const failed = mpResults.find((r) => r.status === 'rejected')
+    if (failed) {
+      // don't leave a match with no (or partial) players behind — a
+      // failed row used to still leave its match row sitting in the
+      // database with nothing attached to it, and repeated import
+      // attempts on the same file multiplied that every time
+      await fetch(`${API_BASE}/matches/${newMatch.match_id}`, { method: 'DELETE' }).catch(() => {})
+      throw failed.reason
+    }
   }
 
   async function runImport(rows, deckMap) {
